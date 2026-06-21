@@ -1,2 +1,2 @@
 # CBT
-Projcet membuat web apps CBT: Supabase + Github Pages
+Project membuat web apps CBT: Supabase + Github Pages
