@@ -424,10 +424,12 @@
         // Inisialisasi Klien dengan nama variabel supabaseClient untuk mencegah konflik
         let supabaseClient = null;
         try {
-            if(SUPABASE_URL.includes('zydheicrwufugserfjbx')) {
-                console.warn("MENGGUNAKAN MODE MOCK KARENA SUPABASE URL BELUM DIISI. Ganti kredensial di kode HTML.");
+            // Cek apakah URL & KEY sudah diisi (bukan placeholder kosong)
+            if(!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+                console.warn("MENGGUNAKAN MODE MOCK KARENA SUPABASE URL/KEY BELUM DIISI. Ganti kredensial di kode HTML.");
             } else {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log("Supabase berhasil diinisialisasi.");
             }
         } catch(e) { console.error("Gagal init Supabase:", e); }
 
