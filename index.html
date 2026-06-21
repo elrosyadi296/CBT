@@ -232,10 +232,11 @@
         <div class="relative bg-white p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-md fade-in border border-slate-100">
             <div class="text-center mb-6 sm:mb-8">
                 <div class="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-secondary text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-xl sm:text-2xl shadow-lg shadow-blue-900/20">
-                    <i class="fa-solid fa-graduation-cap"></i>
-                </div>
-                <h1 class="font-display text-xl sm:text-2xl font-extrabold text-primary tracking-tight">CBT Professional</h1>
-                <p class="text-slate-500 text-xs sm:text-sm mt-1">Ujian Berbasis Komputer untuk Madrasah/Sekolah</p>
+					<img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png"
+					alt="Logo MTs" class="w-full h-full object-contain"/>
+				</div>
+                <h1 class="font-display text-xl sm:text-2xl font-extrabold text-primary tracking-tight">CBT - MTs YAPIKA</h1>
+                <p class="text-slate-500 text-xs sm:text-sm mt-1">Ujian Berbasis Komputer</p>
             </div>
 
             <!-- Tab Toggle -->
@@ -286,7 +287,7 @@
                 <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-bold py-3 px-4 rounded-lg transition-all shadow-md">Masuk Dashboard Admin</button>
             </form>
 
-            <p class="text-center text-xs text-slate-400 mt-6">&copy; <span id="login-year"></span> CBT Professional. Seluruh hak cipta dilindungi.</p>
+            <p class="text-center text-xs text-slate-400 mt-6">&copy; <span id="login-year"></span> CBT - MTs YAPIKA.</p>
         </div>
     </div>
 
@@ -334,6 +335,11 @@
                 <h3 class="text-lg sm:text-xl font-bold text-slate-800 border-b pb-2 font-display">Daftar Ujian Anda</h3>
                 <div id="st-exam-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <!-- Exam Cards Injected Here -->
+                </div>
+
+                <h3 class="text-lg sm:text-xl font-bold text-slate-800 border-b pb-2 font-display mt-6">Riwayat &amp; Hasil Ujian</h3>
+                <div id="st-riwayat-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <!-- Riwayat Ujian + Tombol Lihat Hasil Injected Here -->
                 </div>
             </div>
 
@@ -549,7 +555,7 @@
                     <div class="overflow-x-auto">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
                             <thead class="uppercase bg-slate-100 text-slate-600 font-semibold text-xs border-b">
-                                <tr><th class="px-6 py-3">Nama Mata Pelajaran</th><th class="px-6 py-3">Durasi (menit)</th><th class="px-6 py-3">Token Ujian</th><th class="px-6 py-3 text-right">Aksi</th></tr>
+                                <tr><th class="px-6 py-3">Nama Mata Pelajaran</th><th class="px-6 py-3">Durasi (menit)</th><th class="px-6 py-3">Token Ujian</th><th class="px-6 py-3">Rilis Hasil ke Siswa</th><th class="px-6 py-3 text-right">Aksi</th></tr>
                             </thead>
                             <tbody id="tbl-mapel" class="divide-y divide-slate-100"></tbody>
                         </table>
@@ -907,6 +913,126 @@
             } catch (err) {
                 container.innerHTML = `<div class="col-span-full text-red-500 text-center py-4">Gagal memuat ujian: ${err.message}</div>`;
             }
+
+            loadRiwayatHasil();
+        }
+
+        // --- Riwayat & Hasil Ujian (Siswa) ---
+        async function loadRiwayatHasil() {
+            const container = document.getElementById('st-riwayat-list');
+            if (!container || !supabaseClient) return;
+            container.innerHTML = '<div class="col-span-full text-center text-slate-400 text-sm py-4"><div class="spinner mx-auto mb-2"></div>Memuat riwayat...</div>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('exams')
+                    .select('id, subjects(nama_mapel, rilis_hasil_at), results(benar, salah, kosong, nilai)')
+                    .eq('user_id', currentUser.id)
+                    .eq('status', 'selesai')
+                    .order('waktu_mulai', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center text-slate-400 text-sm py-4 bg-white rounded-xl border border-dashed">Belum ada ujian yang Anda selesaikan.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                const now = new Date();
+                data.forEach(ex => {
+                    const rilisAt = ex.subjects?.rilis_hasil_at ? new Date(ex.subjects.rilis_hasil_at) : null;
+                    const sudahRilis = !rilisAt || now >= rilisAt;
+                    const nilai = (ex.results && ex.results.nilai != null) ? ex.results.nilai : '-';
+                    const namaMapel = ex.subjects?.nama_mapel || 'Mapel';
+                    const namaMapelSafe = namaMapel.replace(/'/g, "\\'");
+
+                    const card = document.createElement('div');
+                    card.className = "fade-in bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-3";
+                    card.innerHTML = `
+                        <div class="min-w-0">
+                            <div class="font-semibold text-slate-700 text-sm truncate">${namaMapel}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">Nilai: <span class="font-bold text-primary">${nilai}</span></div>
+                        </div>
+                        ${sudahRilis
+                            ? `<button onclick="lihatHasilUjian('${ex.id}', '${namaMapelSafe}')" class="text-xs px-3 py-2 bg-blue-50 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white active:scale-[0.98] transition whitespace-nowrap flex-shrink-0">Lihat Hasil</button>`
+                            : `<span class="text-[11px] text-slate-400 text-right flex-shrink-0">Hasil rilis:<br>${rilisAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>`
+                        }
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                container.innerHTML = `<div class="col-span-full text-red-500 text-center text-sm py-4">Gagal memuat riwayat: ${err.message}</div>`;
+            }
+        }
+
+        async function lihatHasilUjian(examId, subjectName) {
+            showLoader();
+            try {
+                const { data: hasil, error: errHasil } = await supabaseClient.from('results').select('*').eq('exam_id', examId).single();
+                if (errHasil || !hasil) throw new Error('Data hasil belum tersedia.');
+
+                const { data: examInfo, error: errExam } = await supabaseClient.from('exams').select('subject_id').eq('id', examId).single();
+                if (errExam || !examInfo) throw new Error('Data ujian tidak ditemukan.');
+
+                const { data: soalList, error: errSoal } = await supabaseClient
+                    .from('questions')
+                    .select('id, jawaban_benar')
+                    .eq('subject_id', examInfo.subject_id)
+                    .order('created_at', { ascending: true });
+                if (errSoal) throw errSoal;
+
+                const { data: jawabanData, error: errJwb } = await supabaseClient
+                    .from('answers')
+                    .select('question_id, jawaban')
+                    .eq('exam_id', examId);
+                if (errJwb) throw errJwb;
+
+                const jawabanMap = {};
+                (jawabanData || []).forEach(a => { jawabanMap[a.question_id] = a.jawaban; });
+
+                let rowsHtml = '';
+                (soalList || []).forEach((q, i) => {
+                    const jawabanSiswa = jawabanMap[q.id] || null;
+                    let statusBadge = '<span class="text-slate-400 font-semibold">Kosong</span>';
+                    if (jawabanSiswa) {
+                        statusBadge = (jawabanSiswa === q.jawaban_benar)
+                            ? '<span class="text-emerald-600 font-bold">Benar</span>'
+                            : '<span class="text-red-500 font-bold">Salah</span>';
+                    }
+                    rowsHtml += `
+                        <tr class="border-b">
+                            <td class="px-2 py-2 text-center font-semibold">${i + 1}</td>
+                            <td class="px-2 py-2 text-center">${jawabanSiswa || '-'}</td>
+                            <td class="px-2 py-2 text-center">${q.jawaban_benar}</td>
+                            <td class="px-2 py-2 text-center">${statusBadge}</td>
+                        </tr>`;
+                });
+
+                Swal.fire({
+                    title: `Hasil Ujian: ${subjectName}`,
+                    html: `
+                        <div class="text-left">
+                            <div class="grid grid-cols-4 gap-2 mb-4 text-center">
+                                <div class="bg-emerald-50 rounded p-2"><div class="text-xs text-slate-500">Benar</div><div class="font-bold text-emerald-600">${hasil.benar}</div></div>
+                                <div class="bg-red-50 rounded p-2"><div class="text-xs text-slate-500">Salah</div><div class="font-bold text-red-500">${hasil.salah}</div></div>
+                                <div class="bg-slate-50 rounded p-2"><div class="text-xs text-slate-500">Kosong</div><div class="font-bold text-slate-500">${hasil.kosong}</div></div>
+                                <div class="bg-blue-50 rounded p-2"><div class="text-xs text-slate-500">Nilai</div><div class="font-bold text-primary">${hasil.nilai}</div></div>
+                            </div>
+                            <div class="max-h-80 overflow-y-auto border rounded">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-slate-100 sticky top-0"><tr><th class="px-2 py-2">No</th><th class="px-2 py-2">Jawaban Anda</th><th class="px-2 py-2">Kunci</th><th class="px-2 py-2">Status</th></tr></thead>
+                                    <tbody>${rowsHtml}</tbody>
+                                </table>
+                            </div>
+                        </div>`,
+                    width: 600,
+                    confirmButtonText: 'Tutup'
+                });
+            } catch (err) {
+                Swal.fire('Gagal', 'Tidak bisa memuat hasil: ' + err.message, 'error');
+            }
+            hideLoader();
         }
 
         let pendingExam = null;
@@ -1623,24 +1749,65 @@
         async function loadMapel() {
             if(!supabaseClient) return;
             const tbody = document.getElementById('tbl-mapel');
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
             const { data, error } = await supabaseClient.from('subjects').select('*').order('nama_mapel', { ascending: true });
-            if(error || !data) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-500">Gagal memuat data</td></tr>'; return; }
-            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">Belum ada mata pelajaran</td></tr>'; return; }
+            if(error || !data) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-500">Gagal memuat data</td></tr>'; return; }
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">Belum ada mata pelajaran</td></tr>'; return; }
             tbody.innerHTML = '';
             data.forEach(m => {
+                const rilisLabel = m.rilis_hasil_at
+                    ? new Date(m.rilis_hasil_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+                    : '<span class="text-slate-400 italic">Langsung setelah selesai</span>';
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50">
                         <td data-label="Nama Mata Pelajaran" class="px-6 py-4 font-medium text-slate-800">${m.nama_mapel}</td>
                         <td data-label="Durasi" class="px-6 py-4 text-slate-500">${m.durasi} menit</td>
                         <td data-label="Token Ujian" class="px-6 py-4"><span class="bg-blue-100 text-blue-700 px-3 py-1 rounded font-mono font-bold tracking-widest text-sm">${m.token || '-'}</span></td>
+                        <td data-label="Rilis Hasil" class="px-6 py-4 text-slate-600 text-sm">${rilisLabel}</td>
                         <td data-label="Aksi" class="td-noflex px-6 py-4 sm:text-right flex flex-wrap gap-2 sm:justify-end">
+                            <button onclick="editRilisHasilModal('${m.id}', ${m.rilis_hasil_at ? `'${m.rilis_hasil_at}'` : 'null'})" class="text-amber-600 hover:text-amber-700 bg-amber-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-clock"></i> Atur Rilis Hasil</button>
                             <button onclick="generateToken('${m.id}')" class="text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-key"></i> Generate Token</button>
                             <button onclick="hapusMapel('${m.id}')" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
             });
+        }
+
+        async function editRilisHasilModal(id, currentValue) {
+            let localValue = '';
+            if (currentValue) {
+                const d = new Date(currentValue);
+                const pad = n => String(n).padStart(2, '0');
+                localValue = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            }
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Atur Waktu Rilis Hasil',
+                html: `
+                    <div class="text-left space-y-3">
+                        <p class="text-sm text-slate-500">Tentukan kapan siswa baru bisa melihat hasil (benar/salah per nomor) untuk mapel ini. Kosongkan agar hasil bisa langsung dilihat begitu siswa menyelesaikan ujian.</p>
+                        <div><label class="text-sm font-medium text-slate-600">Waktu Rilis Hasil</label>
+                        <input id="swal-rilis-hasil" type="datetime-local" class="swal2-input mt-1" value="${localValue}"></div>
+                    </div>`,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    const val = document.getElementById('swal-rilis-hasil').value;
+                    return { rilis_hasil_at: val ? new Date(val).toISOString() : null };
+                }
+            });
+
+            if (formValues) {
+                showLoader();
+                const { error } = await supabaseClient.from('subjects').update(formValues).eq('id', id);
+                hideLoader();
+                if (error) return Swal.fire('Error', error.message, 'error');
+                Swal.fire('Berhasil', 'Waktu rilis hasil berhasil disimpan', 'success');
+                loadMapel();
+            }
         }
 
         async function addMapelModal() {
@@ -1841,13 +2008,75 @@
             }
         }
 
-        function exportHasilExcel() {
+        async function exportHasilExcel() {
             const subjectId = document.getElementById('filter-hasil-mapel').value;
             if(!subjectId) return Swal.fire('Error', 'Pilih mapel terlebih dahulu', 'warning');
-            
-            const table = document.getElementById("tbl-hasil");
-            const wb = XLSX.utils.table_to_book(table.parentElement, {sheet:"Nilai"});
-            XLSX.writeFile(wb, "Rekap_Nilai_CBT.xlsx");
+
+            showLoader();
+            try {
+                // 1. Ambil daftar soal mapel ini (urutan tetap/konsisten, dipakai sebagai penomoran kolom No.1, No.2, dst)
+                const { data: soalList, error: errSoal } = await supabaseClient
+                    .from('questions')
+                    .select('id, jawaban_benar')
+                    .eq('subject_id', subjectId)
+                    .order('created_at', { ascending: true });
+                if(errSoal) throw errSoal;
+                if(!soalList || soalList.length === 0) { hideLoader(); return Swal.fire('Info', 'Belum ada soal untuk mapel ini', 'info'); }
+
+                // 2. Ambil data nilai peserta untuk mapel ini (sama seperti yang ditampilkan di tabel UI)
+                const { data: hasilData, error: errHasil } = await supabaseClient
+                    .from('results')
+                    .select('*, exams!inner(id, subject_id, users(nama, nomor_peserta))')
+                    .eq('exams.subject_id', subjectId);
+                if(errHasil) throw errHasil;
+                if(!hasilData || hasilData.length === 0) { hideLoader(); return Swal.fire('Info', 'Belum ada peserta yang menyelesaikan ujian ini', 'info'); }
+
+                // 3. Ambil semua jawaban peserta untuk seluruh exam terkait, sekali query (efisien)
+                const examIds = hasilData.map(r => r.exams.id);
+                const { data: jawabanData, error: errJwb } = await supabaseClient
+                    .from('answers')
+                    .select('exam_id, question_id, jawaban')
+                    .in('exam_id', examIds);
+                if(errJwb) throw errJwb;
+
+                // Susun jawaban per exam_id => { question_id: jawaban }
+                const jawabanPerExam = {};
+                (jawabanData || []).forEach(a => {
+                    if(!jawabanPerExam[a.exam_id]) jawabanPerExam[a.exam_id] = {};
+                    jawabanPerExam[a.exam_id][a.question_id] = a.jawaban;
+                });
+
+                // 4. Susun header: No. Peserta, Nama, No.1..No.N, Benar, Salah, Kosong, Nilai
+                const header = ['No. Peserta', 'Nama Lengkap'];
+                soalList.forEach((q, i) => header.push('No.' + (i + 1)));
+                header.push('Benar', 'Salah', 'Kosong', 'Nilai');
+
+                const rows = [header];
+
+                hasilData.forEach(r => {
+                    const jwb = jawabanPerExam[r.exams.id] || {};
+                    const row = [r.exams.users?.nomor_peserta || '-', r.exams.users?.nama || '-'];
+
+                    soalList.forEach(q => {
+                        const jawabanSiswa = jwb[q.id];
+                        if(!jawabanSiswa) row.push('K');               // Kosong / tidak dijawab
+                        else if(jawabanSiswa === q.jawaban_benar) row.push('B'); // Benar
+                        else row.push('S');                              // Salah
+                    });
+
+                    row.push(r.benar, r.salah, r.kosong, r.nilai);
+                    rows.push(row);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Rekap Per Nomor');
+                XLSX.writeFile(wb, `Rekap_Nilai_PerNomor_${Date.now()}.xlsx`);
+
+            } catch(err) {
+                Swal.fire('Error', 'Gagal export: ' + err.message, 'error');
+            }
+            hideLoader();
         }
 
     </script>
