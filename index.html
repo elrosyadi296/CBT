@@ -525,7 +525,7 @@
                             <button onclick="downloadTemplatePeserta()" class="px-3 sm:px-4 py-2 bg-slate-500 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-slate-600 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-download mr-1"></i> Template</button>
                             <button id="btn-bulk-delete-peserta" onclick="hapusTerpilihPeserta()" disabled class="px-3 sm:px-4 py-2 bg-danger text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-red-600 active:scale-[0.98] transition whitespace-nowrap opacity-50 cursor-not-allowed disabled:opacity-50"><i class="fa-solid fa-trash-can mr-1"></i> Hapus Terpilih (<span id="bulk-delete-count-peserta">0</span>)</button>
                         </div>
-                        <input type="text" placeholder="Cari peserta..." class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-full sm:w-56">
+                        <input type="text" id="search-peserta" oninput="filterPeserta()" placeholder="Cari peserta..." class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-full sm:w-56">
                     </div>
                     <div class="overflow-x-auto">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
@@ -553,7 +553,7 @@
                         </div>
                         <div class="flex gap-2 flex-wrap">
                             <button onclick="addSoalModal()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-primary text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-blue-800 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-plus mr-1"></i> Tambah Soal</button>
-                            <label class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-emerald-700 active:scale-[0.98] transition cursor-pointer whitespace-nowrap">
+                            <label onclick="return guardImportSoalClick(event)" class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-emerald-700 active:scale-[0.98] transition cursor-pointer whitespace-nowrap">
                                 <i class="fa-solid fa-file-import mr-1"></i> Import Soal
                                 <input type="file" class="hidden" accept=".xlsx" onchange="handleImportSoal(event)">
                             </label>
@@ -852,6 +852,7 @@
         function logoutAdmin() {
             if(supabaseClient) supabaseClient.auth.signOut();
             localStorage.removeItem('cbt_admin');
+            localStorage.removeItem('cbt_admin_tab');
             window.location.reload();
         }
 
@@ -1233,7 +1234,7 @@
         function renderQuestion() {
             const q = questions[currentQuestionIndex];
             document.getElementById('q-number').textContent = currentQuestionIndex + 1;
-            document.getElementById('q-text').innerHTML = q.soal.replace(/\n/g, '<br>');
+            document.getElementById('q-text').innerHTML = renderMathText(q.soal).replace(/\n/g, '<br>');
             
             const imgContainer = document.getElementById('q-image-container');
             const imgEl = document.getElementById('q-image');
@@ -1264,7 +1265,7 @@
                             <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0 flex items-center justify-center mr-3 radio-circle mt-0.5">
                                 <span class="text-xs font-bold text-slate-500">${opt.key}</span>
                             </div>
-                            <div class="text-slate-700 leading-relaxed pt-0.5 text-[15px] sm:text-base">${opt.text}</div>
+                            <div class="text-slate-700 leading-relaxed pt-0.5 text-[15px] sm:text-base">${renderMathText(opt.text)}</div>
                         </div>
                     </label>
                 `;
@@ -1447,13 +1448,28 @@
          * HELPER: Pembangun Field Form yang Elegan & Responsif (untuk modal SweetAlert2)
          * ============================================================================
          */
+        // Escape karakter HTML agar nilai (value) yang berisi tanda kutip/</> tidak merusak struktur modal
+        function escapeHtml(str) {
+            if(str === null || str === undefined) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Mengubah notasi pangkat dengan tanda "^" menjadi superscript HTML, misal: 5^2 -> 5<sup>2</sup>
+        // Mendukung juga "^{...}" untuk pangkat lebih dari satu karakter, misal: 5^{23} -> 5<sup>23</sup>
+        function renderMathText(text) {
+            if(text === null || text === undefined) return '';
+            return String(text)
+                .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+                .replace(/\^(-?[\w.]+)/g, '<sup>$1</sup>');
+        }
+
         function swalInput({ id, label, icon = '', type = 'text', placeholder = '', attrs = '', value = '' }) {
             return `
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 mb-1 text-left">${label}</label>
                     <div class="relative">
                         ${icon ? `<i class="${icon} absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>` : ''}
-                        <input id="${id}" type="${type}" ${attrs} value="${value}" placeholder="${placeholder}" class="cbt-field-input w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
+                        <input id="${id}" type="${type}" ${attrs} value="${escapeHtml(value)}" placeholder="${placeholder}" class="cbt-field-input w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
                     </div>
                 </div>`;
         }
@@ -1469,11 +1485,11 @@
                 </div>`;
         }
 
-        function swalTextarea({ id, label, placeholder = '', rows = 3 }) {
+        function swalTextarea({ id, label, placeholder = '', rows = 3, value = '' }) {
             return `
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 mb-1 text-left">${label}</label>
-                    <textarea id="${id}" rows="${rows}" placeholder="${placeholder}" class="cbt-field-input w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white resize-none"></textarea>
+                    <textarea id="${id}" rows="${rows}" placeholder="${placeholder}" class="cbt-field-input w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white resize-none">${escapeHtml(value)}</textarea>
                 </div>`;
         }
 
@@ -1512,13 +1528,18 @@
          * ============================================================================
          */
         
+        const ADMIN_TAB_KEYS = ['dashboard', 'peserta', 'mapel', 'soal', 'jadwal', 'monitor', 'hasil'];
+
         function initAdmin() {
-            switchAdminMenu('dashboard');
+            const savedTab = localStorage.getItem('cbt_admin_tab');
+            const initialTab = ADMIN_TAB_KEYS.includes(savedTab) ? savedTab : 'dashboard';
+            switchAdminMenu(initialTab);
         }
 
         function switchAdminMenu(menuId) {
             document.querySelectorAll('.admin-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(`admin-${menuId}`).classList.remove('hidden');
+            localStorage.setItem('cbt_admin_tab', menuId); // simpan tab aktif agar tetap sama setelah halaman di-refresh
             
             document.querySelectorAll('.admin-menu').forEach(el => {
                 el.classList.remove('bg-slate-800', 'text-white', 'border-blue-500');
@@ -1583,6 +1604,15 @@
                 `;
             });
             updateBulkDeleteState();
+        }
+
+        function filterPeserta() {
+            const keyword = document.getElementById('search-peserta').value.toLowerCase().trim();
+            document.querySelectorAll('#tbl-peserta tr').forEach(tr => {
+                const namaCell = tr.querySelector('td[data-label="Nama Lengkap"]');
+                if(!namaCell) return; // baris loading/kosong tidak punya kolom ini, lewati
+                tr.style.display = namaCell.textContent.toLowerCase().includes(keyword) ? '' : 'none';
+            });
         }
 
         function toggleAllPeserta(el) {
@@ -1692,25 +1722,85 @@
                 container.innerHTML = '<div class="text-center text-slate-500 py-10 bg-white rounded-xl border border-dashed">Belum ada soal untuk mata pelajaran ini.</div>'; return;
             }
 
-            container.innerHTML = '';
+            container.innerHTML = `
+                <div class="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between flex-wrap gap-2">
+                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-all-soal" onchange="toggleAllSoal(this)" class="cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer">
+                        Pilih Semua
+                    </label>
+                    <button id="btn-bulk-delete-soal" onclick="hapusTerpilihSoal()" disabled class="px-3 py-1.5 bg-danger text-white rounded shadow text-xs font-medium hover:bg-red-600 active:scale-[0.98] transition whitespace-nowrap opacity-50 cursor-not-allowed disabled:opacity-50"><i class="fa-solid fa-trash-can mr-1"></i> Hapus Terpilih (<span id="bulk-delete-count-soal">0</span>)</button>
+                </div>
+            `;
             data.forEach((s, idx) => {
                 container.innerHTML += `
                     <div class="bg-white p-3.5 sm:p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-slate-700 text-sm sm:text-base">Soal ${idx + 1}</span>
-                            <button onclick="hapusSoal('${s.id}')" class="text-xs text-red-500 hover:underline shrink-0 ml-2"><i class="fa-solid fa-trash"></i> Hapus</button>
+                        <div class="flex justify-between items-start gap-2 mb-2">
+                            <label class="flex items-start gap-2 min-w-0 cursor-pointer">
+                                <input type="checkbox" class="chk-soal cbt-checkbox w-4 h-4 mt-0.5 rounded border-slate-300 text-primary cursor-pointer shrink-0" value="${s.id}" onchange="updateBulkDeleteStateSoal()">
+                                <span class="font-bold text-slate-700 text-sm sm:text-base">Soal ${idx + 1}</span>
+                            </label>
+                            <div class="flex gap-3 shrink-0">
+                                <button onclick="editSoalModal('${s.id}')" class="text-xs text-amber-600 hover:underline whitespace-nowrap"><i class="fa-solid fa-pen"></i> Edit</button>
+                                <button onclick="hapusSoal('${s.id}')" class="text-xs text-red-500 hover:underline whitespace-nowrap"><i class="fa-solid fa-trash"></i> Hapus</button>
+                            </div>
                         </div>
-                        <p class="text-slate-800 text-sm mb-3">${s.soal}</p>
-                        ${s.gambar ? `<div class="mb-3"><img src="${s.gambar}" alt="Gambar Soal" class="max-h-32 rounded-lg border border-slate-200"></div>` : ''}
-                        <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
-                            <div class="p-2 border rounded ${s.jawaban_benar==='A'?'bg-green-100 border-green-500':''}"><span class="font-bold">A.</span> ${s.pilihan_a}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='B'?'bg-green-100 border-green-500':''}"><span class="font-bold">B.</span> ${s.pilihan_b}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='C'?'bg-green-100 border-green-500':''}"><span class="font-bold">C.</span> ${s.pilihan_c}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='D'?'bg-green-100 border-green-500':''}"><span class="font-bold">D.</span> ${s.pilihan_d}</div>
+                        <p class="text-slate-800 text-sm mb-3 pl-6">${renderMathText(s.soal)}</p>
+                        ${s.gambar ? `<div class="mb-3 pl-6"><img src="${s.gambar}" alt="Gambar Soal" class="max-h-32 rounded-lg border border-slate-200"></div>` : ''}
+                        <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs pl-6">
+                            <div class="p-2 border rounded ${s.jawaban_benar==='A'?'bg-green-100 border-green-500':''}"><span class="font-bold">A.</span> ${renderMathText(s.pilihan_a)}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='B'?'bg-green-100 border-green-500':''}"><span class="font-bold">B.</span> ${renderMathText(s.pilihan_b)}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='C'?'bg-green-100 border-green-500':''}"><span class="font-bold">C.</span> ${renderMathText(s.pilihan_c)}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='D'?'bg-green-100 border-green-500':''}"><span class="font-bold">D.</span> ${renderMathText(s.pilihan_d)}</div>
                         </div>
                     </div>
                 `;
             });
+            updateBulkDeleteStateSoal();
+        }
+
+        function toggleAllSoal(el) {
+            document.querySelectorAll('.chk-soal').forEach(c => { c.checked = el.checked; });
+            updateBulkDeleteStateSoal();
+        }
+
+        function updateBulkDeleteStateSoal() {
+            const checked = document.querySelectorAll('.chk-soal:checked');
+            const btn = document.getElementById('btn-bulk-delete-soal');
+            const countEl = document.getElementById('bulk-delete-count-soal');
+            if(countEl) countEl.textContent = checked.length;
+            if(btn) {
+                btn.disabled = checked.length === 0;
+                btn.classList.toggle('opacity-50', checked.length === 0);
+                btn.classList.toggle('cursor-not-allowed', checked.length === 0);
+            }
+            const allBoxes = document.querySelectorAll('.chk-soal');
+            const allChk = document.getElementById('chk-all-soal');
+            if(allChk) allChk.checked = allBoxes.length > 0 && checked.length === allBoxes.length;
+        }
+
+        async function hapusTerpilihSoal() {
+            const ids = Array.from(document.querySelectorAll('.chk-soal:checked')).map(c => c.value);
+            if(ids.length === 0) return;
+
+            const result = await Swal.fire({
+                title: `Hapus ${ids.length} Soal?`,
+                text: 'Soal yang dipilih akan dihapus permanen dan tidak dapat dikembalikan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: `Ya, Hapus ${ids.length} Soal`,
+                cancelButtonText: 'Batal'
+            });
+            if(!result.isConfirmed) return;
+
+            showLoader();
+            const { error } = await supabaseClient.from('questions').delete().in('id', ids);
+            hideLoader();
+            if(error) return Swal.fire('Error', error.message, 'error');
+
+            Swal.fire('Berhasil', `${ids.length} soal berhasil dihapus`, 'success');
+            loadSoal();
         }
 
         async function hapusSoal(id) {
@@ -1718,6 +1808,18 @@
                 await supabaseClient.from('questions').delete().eq('id', id);
                 loadSoal();
             }
+        }
+
+        // Mencegah dialog pilih file terbuka sama sekali jika belum ada mapel yang dipilih
+        // (lapisan pengaman tambahan selain pengecekan di dalam handleImportSoal)
+        function guardImportSoalClick(e) {
+            const subjectId = document.getElementById('filter-mapel-soal').value;
+            if(!subjectId) {
+                e.preventDefault();
+                Swal.fire('Peringatan', 'Pilih Mata Pelajaran terlebih dahulu sebelum import soal', 'warning');
+                return false;
+            }
+            return true;
         }
 
         function handleImportSoal(event) {
@@ -2053,6 +2155,56 @@
         }
 
         // --- Tambah Soal Manual ---
+        // Membangun HTML form Soal (dipakai bersama oleh Tambah & Edit Soal). prefill diisi data soal saat mode Edit.
+        function buildSoalFormHtml(prefill = {}) {
+            const optionsKunci = ['A', 'B', 'C', 'D'].map(k => `<option value="${k}" ${prefill.jawaban_benar === k ? 'selected' : ''}>${k}</option>`).join('');
+            const existingGambar = prefill.gambar || '';
+            const isBase64 = existingGambar.startsWith('data:');
+            return `
+                <div class="text-left space-y-3.5">
+                    ${swalTextarea({ id: 'swal-soal', label: 'Pertanyaan', placeholder: 'Tulis soal di sini... (pakai tanda ^ untuk pangkat, contoh: 5^2)', rows: 3, value: prefill.soal || '' })}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        ${swalInput({ id: 'swal-a', label: 'Pilihan A', placeholder: 'Pilihan A', value: prefill.pilihan_a || '' })}
+                        ${swalInput({ id: 'swal-b', label: 'Pilihan B', placeholder: 'Pilihan B', value: prefill.pilihan_b || '' })}
+                        ${swalInput({ id: 'swal-c', label: 'Pilihan C', placeholder: 'Pilihan C', value: prefill.pilihan_c || '' })}
+                        ${swalInput({ id: 'swal-d', label: 'Pilihan D', placeholder: 'Pilihan D', value: prefill.pilihan_d || '' })}
+                    </div>
+                    ${swalSelect({ id: 'swal-kunci', label: 'Kunci Jawaban', icon: 'fa-solid fa-key', optionsHtml: optionsKunci })}
+
+                    <div class="border-t border-slate-200 pt-3.5">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5 text-left">Gambar Soal (Opsional)</label>
+                        <div class="flex flex-col sm:flex-row gap-2.5">
+                            <label class="cursor-pointer px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-medium text-slate-600 transition whitespace-nowrap text-center">
+                                <i class="fa-solid fa-image mr-1.5"></i> Upload Gambar
+                                <input type="file" id="swal-gambar-file" accept="image/*" class="hidden" onchange="previewSoalGambar(event)">
+                            </label>
+                            <input id="swal-gambar-url" type="text" placeholder="atau tempel URL gambar di sini" value="${isBase64 ? '' : escapeHtml(existingGambar)}" oninput="onSoalGambarUrlInput(this.value)" class="cbt-field-input flex-1 w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
+                        </div>
+                        <div id="swal-gambar-preview-wrap" class="${existingGambar ? '' : 'hidden'} mt-2.5 relative inline-block">
+                            <img id="swal-gambar-preview" class="max-h-28 rounded-lg border border-slate-200" src="${escapeHtml(existingGambar)}" ${isBase64 ? `data-base64="${escapeHtml(existingGambar)}"` : ''}>
+                            <button type="button" onclick="clearSoalGambar()" title="Hapus gambar" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // Mengambil & memvalidasi nilai form Soal yang sedang terbuka di modal
+        function extractSoalFormValues(subjectId) {
+            const soal = document.getElementById('swal-soal').value;
+            const a = document.getElementById('swal-a').value;
+            const b = document.getElementById('swal-b').value;
+            const c = document.getElementById('swal-c').value;
+            const d = document.getElementById('swal-d').value;
+            const kunci = document.getElementById('swal-kunci').value;
+            if(!soal || !a || !b || !c || !d) { Swal.showValidationMessage('Semua field wajib diisi!'); return false; }
+
+            const preview = document.getElementById('swal-gambar-preview');
+            const urlVal = document.getElementById('swal-gambar-url').value.trim();
+            const gambar = (preview && preview.dataset.base64) ? preview.dataset.base64 : (urlVal || null);
+
+            return { subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci, gambar };
+        }
+
         async function addSoalModal() {
             const subjectId = document.getElementById('filter-mapel-soal').value;
             if(!subjectId) return Swal.fire('Peringatan', 'Pilih Mata Pelajaran terlebih dahulu', 'warning');
@@ -2061,51 +2213,12 @@
                 title: 'Tambah Soal Baru',
                 width: 'min(720px, 94vw)',
                 customClass: { popup: 'cbt-popup' },
-                html: `
-                    <div class="text-left space-y-3.5">
-                        ${swalTextarea({ id: 'swal-soal', label: 'Pertanyaan', placeholder: 'Tulis soal di sini...', rows: 3 })}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                            ${swalInput({ id: 'swal-a', label: 'Pilihan A', placeholder: 'Pilihan A' })}
-                            ${swalInput({ id: 'swal-b', label: 'Pilihan B', placeholder: 'Pilihan B' })}
-                            ${swalInput({ id: 'swal-c', label: 'Pilihan C', placeholder: 'Pilihan C' })}
-                            ${swalInput({ id: 'swal-d', label: 'Pilihan D', placeholder: 'Pilihan D' })}
-                        </div>
-                        ${swalSelect({ id: 'swal-kunci', label: 'Kunci Jawaban', icon: 'fa-solid fa-key', optionsHtml: '<option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>' })}
-
-                        <div class="border-t border-slate-200 pt-3.5">
-                            <label class="block text-xs font-semibold text-slate-500 mb-1.5 text-left">Gambar Soal (Opsional)</label>
-                            <div class="flex flex-col sm:flex-row gap-2.5">
-                                <label class="cursor-pointer px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-medium text-slate-600 transition whitespace-nowrap text-center">
-                                    <i class="fa-solid fa-image mr-1.5"></i> Upload Gambar
-                                    <input type="file" id="swal-gambar-file" accept="image/*" class="hidden" onchange="previewSoalGambar(event)">
-                                </label>
-                                <input id="swal-gambar-url" type="text" placeholder="atau tempel URL gambar di sini" oninput="onSoalGambarUrlInput(this.value)" class="cbt-field-input flex-1 w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
-                            </div>
-                            <div id="swal-gambar-preview-wrap" class="hidden mt-2.5 relative inline-block">
-                                <img id="swal-gambar-preview" class="max-h-28 rounded-lg border border-slate-200" src="">
-                                <button type="button" onclick="clearSoalGambar()" title="Hapus gambar" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                        </div>
-                    </div>`,
+                html: buildSoalFormHtml(),
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: 'Simpan Soal',
                 cancelButtonText: 'Batal',
-                preConfirm: () => {
-                    const soal = document.getElementById('swal-soal').value;
-                    const a = document.getElementById('swal-a').value;
-                    const b = document.getElementById('swal-b').value;
-                    const c = document.getElementById('swal-c').value;
-                    const d = document.getElementById('swal-d').value;
-                    const kunci = document.getElementById('swal-kunci').value;
-                    if(!soal || !a || !b || !c || !d) { Swal.showValidationMessage('Semua field wajib diisi!'); return false; }
-
-                    const preview = document.getElementById('swal-gambar-preview');
-                    const urlVal = document.getElementById('swal-gambar-url').value.trim();
-                    const gambar = (preview && preview.dataset.base64) ? preview.dataset.base64 : (urlVal || null);
-
-                    return { subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci, gambar };
-                }
+                preConfirm: () => extractSoalFormValues(subjectId)
             });
             if(formValues) {
                 showLoader();
@@ -2113,6 +2226,33 @@
                 hideLoader();
                 if(error) return Swal.fire('Error', error.message, 'error');
                 Swal.fire('Berhasil', 'Soal berhasil ditambahkan', 'success');
+                loadSoal();
+            }
+        }
+
+        async function editSoalModal(id) {
+            showLoader();
+            const { data: s, error: errFetch } = await supabaseClient.from('questions').select('*').eq('id', id).single();
+            hideLoader();
+            if(errFetch || !s) return Swal.fire('Error', 'Gagal memuat data soal', 'error');
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Edit Soal',
+                width: 'min(720px, 94vw)',
+                customClass: { popup: 'cbt-popup' },
+                html: buildSoalFormHtml(s),
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan Perubahan',
+                cancelButtonText: 'Batal',
+                preConfirm: () => extractSoalFormValues(s.subject_id)
+            });
+            if(formValues) {
+                showLoader();
+                const { error } = await supabaseClient.from('questions').update(formValues).eq('id', id);
+                hideLoader();
+                if(error) return Swal.fire('Error', error.message, 'error');
+                Swal.fire('Berhasil', 'Soal berhasil diperbarui', 'success');
                 loadSoal();
             }
         }
