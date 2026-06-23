@@ -98,8 +98,8 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- SheetJS untuk Export/Import Excel -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- SheetJS (xlsx-js-style: fork SheetJS CE yang mendukung pewarnaan sel saat export) untuk Export/Import Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -148,6 +148,20 @@
 
         .radio-custom:checked + div { border-color: #3B82F6; background-color: #EFF6FF; box-shadow: 0 2px 10px rgba(59,130,246,.12); }
         .radio-custom:checked + div .radio-circle { border-color: #3B82F6; background-color: #3B82F6; }
+
+        /* ===== Elegant Modal/Form Polish (SweetAlert2) ===== */
+        .swal2-popup.cbt-popup {
+            border-radius: 1.25rem !important;
+            padding: 1.75rem 1.5rem !important;
+            font-family: 'Inter', sans-serif;
+        }
+        .swal2-popup.cbt-popup .swal2-title { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-size: 1.2rem !important; padding: 0 0 0.25rem 0 !important; }
+        .swal2-popup.cbt-popup .swal2-html-container { margin: 0.75rem 0 0 0 !important; }
+        .swal2-popup.cbt-popup .swal2-actions { margin-top: 1.25rem !important; }
+        .cbt-field-input:focus { box-shadow: 0 2px 10px rgba(59,130,246,.12); }
+
+        /* Bulk-select checkboxes & toggles use the brand color */
+        .chk-peserta, #chk-all-peserta, .cbt-checkbox { accent-color: #1E40AF; }
 
         /* Loading Overlay */
         #loader { position: fixed; inset: 0; background: rgba(255,255,255,0.92); backdrop-filter: blur(2px); z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
@@ -509,13 +523,17 @@
                                 <input type="file" id="import-peserta" class="hidden" accept=".xlsx, .xls" onchange="handleImportPeserta(event)">
                             </label>
                             <button onclick="downloadTemplatePeserta()" class="px-3 sm:px-4 py-2 bg-slate-500 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-slate-600 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-download mr-1"></i> Template</button>
+                            <button id="btn-bulk-delete-peserta" onclick="hapusTerpilihPeserta()" disabled class="px-3 sm:px-4 py-2 bg-danger text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-red-600 active:scale-[0.98] transition whitespace-nowrap opacity-50 cursor-not-allowed disabled:opacity-50"><i class="fa-solid fa-trash-can mr-1"></i> Hapus Terpilih (<span id="bulk-delete-count-peserta">0</span>)</button>
                         </div>
                         <input type="text" placeholder="Cari peserta..." class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-full sm:w-56">
                     </div>
                     <div class="overflow-x-auto">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
                             <thead class="uppercase bg-slate-100 text-slate-600 font-semibold text-xs border-b">
-                                <tr><th class="px-6 py-3">Nama Lengkap</th><th class="px-6 py-3">No. Peserta</th><th class="px-6 py-3">Kelas</th><th class="px-6 py-3 text-right">Aksi</th></tr>
+                                <tr>
+                                    <th class="px-4 py-3 w-10"><input type="checkbox" id="chk-all-peserta" onchange="toggleAllPeserta(this)" class="cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer"></th>
+                                    <th class="px-6 py-3">Nama Lengkap</th><th class="px-6 py-3">No. Peserta</th><th class="px-6 py-3">Kelas</th><th class="px-6 py-3 text-right">Aksi</th>
+                                </tr>
                             </thead>
                             <tbody id="tbl-peserta" class="divide-y divide-slate-100">
                                 <!-- Data Injected -->
@@ -555,7 +573,7 @@
                     <div class="overflow-x-auto">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
                             <thead class="uppercase bg-slate-100 text-slate-600 font-semibold text-xs border-b">
-                                <tr><th class="px-6 py-3">Nama Mata Pelajaran</th><th class="px-6 py-3">Durasi (menit)</th><th class="px-6 py-3">Token Ujian</th><th class="px-6 py-3">Rilis Hasil ke Siswa</th><th class="px-6 py-3 text-right">Aksi</th></tr>
+                                <tr><th class="px-6 py-3">Nama Mata Pelajaran</th><th class="px-6 py-3">Durasi (menit)</th><th class="px-6 py-3">Token Ujian</th><th class="px-6 py-3">Acak Soal</th><th class="px-6 py-3">Rilis Hasil ke Siswa</th><th class="px-6 py-3 text-right">Aksi</th></tr>
                             </thead>
                             <tbody id="tbl-mapel" class="divide-y divide-slate-100"></tbody>
                         </table>
@@ -1051,10 +1069,10 @@
             
             showLoader();
             try {
-                // Verify Token
+                // Verify Token & ambil pengaturan acak soal mapel ini
                 const { data: mapel, error } = await supabaseClient
                     .from('subjects')
-                    .select('token')
+                    .select('token, acak_soal')
                     .eq('id', pendingExam.subjectId)
                     .single();
                 
@@ -1098,18 +1116,21 @@
                     examId = newExam.id;
                 }
 
-                // Ambil Soal
+                // Ambil Soal (jawaban_benar WAJIB disertakan agar penilaian tetap akurat meski urutan soal diacak)
                 const { data: soalData, error: errSoal } = await supabaseClient
                     .from('questions')
-                    .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d')
+                    .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar')
                     .eq('subject_id', pendingExam.subjectId);
                 
                 if(errSoal || soalData.length === 0) throw new Error('Bank soal kosong.');
 
-                // Randomisasi Soal (Fisher-Yates)
-                for (let i = soalData.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [soalData[i], soalData[j]] = [soalData[j], soalData[i]];
+                // Randomisasi Soal (Fisher-Yates) - hanya dijalankan jika admin mengizinkan acak soal untuk mapel ini
+                const acakAktif = mapel.acak_soal !== false; // default aktif jika kolom belum terisi (NULL)
+                if(acakAktif) {
+                    for (let i = soalData.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [soalData[i], soalData[j]] = [soalData[j], soalData[i]];
+                    }
                 }
                 questions = soalData;
 
@@ -1118,7 +1139,8 @@
                     examId: examId,
                     subjectId: pendingExam.subjectId,
                     subjectName: pendingExam.subjectName,
-                    endTime: waktuSelesai
+                    endTime: waktuSelesai,
+                    questionOrder: soalData.map(q => q.id) // simpan urutan agar tetap konsisten saat resume (refresh halaman)
                 };
                 localStorage.setItem('cbt_exam_state', JSON.stringify(currentExam));
                 
@@ -1147,10 +1169,18 @@
             // Re-fetch questions based on currentExam
             showLoader();
             supabaseClient.from('questions')
-                .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d')
+                .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar')
                 .eq('subject_id', currentExam.subjectId)
                 .then(({data}) => {
-                    questions = data;
+                    // Pertahankan urutan soal yang sama seperti saat ujian dimulai (jika tersimpan)
+                    if(currentExam.questionOrder && Array.isArray(currentExam.questionOrder)) {
+                        const map = {};
+                        (data || []).forEach(q => map[q.id] = q);
+                        questions = currentExam.questionOrder.map(id => map[id]).filter(Boolean);
+                        (data || []).forEach(q => { if(!currentExam.questionOrder.includes(q.id)) questions.push(q); });
+                    } else {
+                        questions = data;
+                    }
                     return supabaseClient.from('answers').select('question_id, jawaban, ragu_ragu').eq('exam_id', currentExam.examId);
                 }).then(({data}) => {
                     answers = {};
@@ -1414,6 +1444,70 @@
 
         /**
          * ============================================================================
+         * HELPER: Pembangun Field Form yang Elegan & Responsif (untuk modal SweetAlert2)
+         * ============================================================================
+         */
+        function swalInput({ id, label, icon = '', type = 'text', placeholder = '', attrs = '', value = '' }) {
+            return `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1 text-left">${label}</label>
+                    <div class="relative">
+                        ${icon ? `<i class="${icon} absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>` : ''}
+                        <input id="${id}" type="${type}" ${attrs} value="${value}" placeholder="${placeholder}" class="cbt-field-input w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
+                    </div>
+                </div>`;
+        }
+
+        function swalSelect({ id, label, icon = '', optionsHtml = '' }) {
+            return `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1 text-left">${label}</label>
+                    <div class="relative">
+                        ${icon ? `<i class="${icon} absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none z-10"></i>` : ''}
+                        <select id="${id}" class="cbt-field-input w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">${optionsHtml}</select>
+                    </div>
+                </div>`;
+        }
+
+        function swalTextarea({ id, label, placeholder = '', rows = 3 }) {
+            return `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1 text-left">${label}</label>
+                    <textarea id="${id}" rows="${rows}" placeholder="${placeholder}" class="cbt-field-input w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white resize-none"></textarea>
+                </div>`;
+        }
+
+        // --- Copy-to-clipboard helper (dipakai pada Token Ujian) ---
+        function copyTokenToClipboard(token, btnEl) {
+            const doCopy = () => {
+                if(btnEl) {
+                    const icon = btnEl.querySelector('i');
+                    if(icon) {
+                        const original = icon.className;
+                        icon.className = 'fa-solid fa-check text-emerald-500';
+                        setTimeout(() => { icon.className = original; }, 1500);
+                    }
+                }
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Token disalin', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+            };
+            if(navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(token).then(doCopy).catch(() => {
+                    Swal.fire('Gagal', 'Tidak dapat menyalin token. Salin secara manual.', 'error');
+                });
+            } else {
+                // Fallback untuk browser/WebView lama
+                const ta = document.createElement('textarea');
+                ta.value = token;
+                ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); doCopy(); } catch(e) { Swal.fire('Gagal', 'Tidak dapat menyalin token. Salin secara manual.', 'error'); }
+                document.body.removeChild(ta);
+            }
+        }
+
+        /**
+         * ============================================================================
          * MODUL ADMIN (DASHBOARD & CRUD)
          * ============================================================================
          */
@@ -1461,18 +1555,24 @@
         }
 
         // --- CRUD Peserta ---
+        let selectedPeserta = new Set();
+
         async function loadPeserta() {
             if(!supabaseClient) return;
+            selectedPeserta.clear();
             const tbody = document.getElementById('tbl-peserta');
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
             
             const { data, error } = await supabaseClient.from('users').select('*').eq('role', 'siswa').order('nama', { ascending: true });
             if(error) return;
             
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada peserta</td></tr>'; updateBulkDeleteState(); return; }
+
             tbody.innerHTML = '';
             data.forEach(p => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50">
+                        <td data-label="Pilih" class="px-4 py-4"><input type="checkbox" class="chk-peserta cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" value="${p.id}" onchange="updateBulkDeleteState()"></td>
                         <td data-label="Nama Lengkap" class="px-6 py-4 font-medium text-slate-800">${p.nama}</td>
                         <td data-label="No. Peserta" class="px-6 py-4 text-slate-500">${p.nomor_peserta}</td>
                         <td data-label="Kelas" class="px-6 py-4"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">${p.kelas}</span></td>
@@ -1482,6 +1582,55 @@
                     </tr>
                 `;
             });
+            updateBulkDeleteState();
+        }
+
+        function toggleAllPeserta(el) {
+            document.querySelectorAll('.chk-peserta').forEach(c => { c.checked = el.checked; });
+            updateBulkDeleteState();
+        }
+
+        function updateBulkDeleteState() {
+            selectedPeserta.clear();
+            document.querySelectorAll('.chk-peserta:checked').forEach(c => selectedPeserta.add(c.value));
+
+            const btn = document.getElementById('btn-bulk-delete-peserta');
+            const countEl = document.getElementById('bulk-delete-count-peserta');
+            if(countEl) countEl.textContent = selectedPeserta.size;
+            if(btn) {
+                btn.disabled = selectedPeserta.size === 0;
+                btn.classList.toggle('opacity-50', selectedPeserta.size === 0);
+                btn.classList.toggle('cursor-not-allowed', selectedPeserta.size === 0);
+            }
+
+            const allBoxes = document.querySelectorAll('.chk-peserta');
+            const allChk = document.getElementById('chk-all-peserta');
+            if(allChk) allChk.checked = allBoxes.length > 0 && selectedPeserta.size === allBoxes.length;
+        }
+
+        async function hapusTerpilihPeserta() {
+            if(selectedPeserta.size === 0) return;
+            const ids = Array.from(selectedPeserta);
+
+            const result = await Swal.fire({
+                title: `Hapus ${ids.length} Peserta?`,
+                text: 'Seluruh data peserta yang dipilih akan dihapus permanen dan tidak dapat dikembalikan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: `Ya, Hapus ${ids.length} Peserta`,
+                cancelButtonText: 'Batal'
+            });
+            if(!result.isConfirmed) return;
+
+            showLoader();
+            const { error } = await supabaseClient.from('users').delete().in('id', ids);
+            hideLoader();
+            if(error) return Swal.fire('Error', error.message, 'error');
+
+            Swal.fire('Berhasil', `${ids.length} peserta berhasil dihapus`, 'success');
+            loadPeserta();
         }
 
         async function hapusPeserta(id) {
@@ -1552,6 +1701,7 @@
                             <button onclick="hapusSoal('${s.id}')" class="text-xs text-red-500 hover:underline shrink-0 ml-2"><i class="fa-solid fa-trash"></i> Hapus</button>
                         </div>
                         <p class="text-slate-800 text-sm mb-3">${s.soal}</p>
+                        ${s.gambar ? `<div class="mb-3"><img src="${s.gambar}" alt="Gambar Soal" class="max-h-32 rounded-lg border border-slate-200"></div>` : ''}
                         <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
                             <div class="p-2 border rounded ${s.jawaban_benar==='A'?'bg-green-100 border-green-500':''}"><span class="font-bold">A.</span> ${s.pilihan_a}</div>
                             <div class="p-2 border rounded ${s.jawaban_benar==='B'?'bg-green-100 border-green-500':''}"><span class="font-bold">B.</span> ${s.pilihan_b}</div>
@@ -1594,7 +1744,8 @@
                             pilihan_b: String(r.B || r.b),
                             pilihan_c: String(r.C || r.c),
                             pilihan_d: String(r.D || r.d),
-                            jawaban_benar: String(r.Kunci || r.kunci).toUpperCase()
+                            jawaban_benar: String(r.Kunci || r.kunci).toUpperCase(),
+                            gambar: (r.Gambar || r.gambar || '').toString().trim() || null
                         }));
                         await supabaseClient.from('questions').insert(formattedData);
                         Swal.fire('Sukses', `${formattedData.length} soal diimport`, 'success');
@@ -1697,16 +1848,16 @@
         async function addPeserta() {
             const { value: formValues } = await Swal.fire({
                 title: 'Tambah Peserta',
+                width: 'min(460px, 92vw)',
+                customClass: { popup: 'cbt-popup' },
                 html: `
-                    <div class="text-left space-y-3">
-                        <div><label class="text-sm font-medium text-slate-600">Nama Lengkap</label>
-                        <input id="swal-nama" class="swal2-input mt-1" placeholder="Nama Lengkap Peserta"></div>
-                        <div><label class="text-sm font-medium text-slate-600">Nomor Peserta</label>
-                        <input id="swal-nopeserta" class="swal2-input mt-1" placeholder="Contoh: 2024001"></div>
-                        <div><label class="text-sm font-medium text-slate-600">Password</label>
-                        <input id="swal-password" class="swal2-input mt-1" placeholder="Password login siswa"></div>
-                        <div><label class="text-sm font-medium text-slate-600">Kelas</label>
-                        <input id="swal-kelas" class="swal2-input mt-1" placeholder="Contoh: XII IPA 1"></div>
+                    <div class="text-left space-y-3.5">
+                        ${swalInput({ id: 'swal-nama', label: 'Nama Lengkap', icon: 'fa-solid fa-user', placeholder: 'Nama Lengkap Peserta' })}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            ${swalInput({ id: 'swal-nopeserta', label: 'Nomor Peserta', icon: 'fa-regular fa-id-card', placeholder: 'Contoh: 2024001' })}
+                            ${swalInput({ id: 'swal-kelas', label: 'Kelas', icon: 'fa-solid fa-school', placeholder: 'Contoh: XII IPA 1' })}
+                        </div>
+                        ${swalInput({ id: 'swal-password', label: 'Password', icon: 'fa-solid fa-lock', type: 'password', placeholder: 'Password login siswa' })}
                     </div>`,
                 focusConfirm: false,
                 showCancelButton: true,
@@ -1749,20 +1900,31 @@
         async function loadMapel() {
             if(!supabaseClient) return;
             const tbody = document.getElementById('tbl-mapel');
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
             const { data, error } = await supabaseClient.from('subjects').select('*').order('nama_mapel', { ascending: true });
-            if(error || !data) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-500">Gagal memuat data</td></tr>'; return; }
-            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">Belum ada mata pelajaran</td></tr>'; return; }
+            if(error || !data) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-500">Gagal memuat data</td></tr>'; return; }
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">Belum ada mata pelajaran</td></tr>'; return; }
             tbody.innerHTML = '';
             data.forEach(m => {
                 const rilisLabel = m.rilis_hasil_at
                     ? new Date(m.rilis_hasil_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
                     : '<span class="text-slate-400 italic">Langsung setelah selesai</span>';
+                const acakAktif = m.acak_soal !== false; // default aktif jika kolom belum terisi (NULL)
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50">
                         <td data-label="Nama Mata Pelajaran" class="px-6 py-4 font-medium text-slate-800">${m.nama_mapel}</td>
                         <td data-label="Durasi" class="px-6 py-4 text-slate-500">${m.durasi} menit</td>
-                        <td data-label="Token Ujian" class="px-6 py-4"><span class="bg-blue-100 text-blue-700 px-3 py-1 rounded font-mono font-bold tracking-widest text-sm">${m.token || '-'}</span></td>
+                        <td data-label="Token Ujian" class="px-6 py-4">
+                            <div class="inline-flex items-center gap-1.5">
+                                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded font-mono font-bold tracking-widest text-sm">${m.token || '-'}</span>
+                                ${m.token ? `<button onclick="copyTokenToClipboard('${m.token}', this)" title="Salin Token" class="text-slate-400 hover:text-primary p-1.5 rounded hover:bg-blue-50 transition shrink-0"><i class="fa-regular fa-copy"></i></button>` : ''}
+                            </div>
+                        </td>
+                        <td data-label="Acak Soal" class="px-6 py-4">
+                            <button onclick="toggleAcakSoal('${m.id}', ${acakAktif})" title="Klik untuk ${acakAktif ? 'menonaktifkan' : 'mengaktifkan'}" class="${acakAktif ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} px-3 py-1 rounded-full text-xs font-semibold transition inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid ${acakAktif ? 'fa-toggle-on' : 'fa-toggle-off'}"></i> ${acakAktif ? 'Aktif' : 'Nonaktif'}
+                            </button>
+                        </td>
                         <td data-label="Rilis Hasil" class="px-6 py-4 text-slate-600 text-sm">${rilisLabel}</td>
                         <td data-label="Aksi" class="td-noflex px-6 py-4 sm:text-right flex flex-wrap gap-2 sm:justify-end">
                             <button onclick="editRilisHasilModal('${m.id}', ${m.rilis_hasil_at ? `'${m.rilis_hasil_at}'` : 'null'})" class="text-amber-600 hover:text-amber-700 bg-amber-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-clock"></i> Atur Rilis Hasil</button>
@@ -1772,6 +1934,14 @@
                     </tr>
                 `;
             });
+        }
+
+        async function toggleAcakSoal(id, currentlyActive) {
+            showLoader();
+            const { error } = await supabaseClient.from('subjects').update({ acak_soal: !currentlyActive }).eq('id', id);
+            hideLoader();
+            if(error) return Swal.fire('Error', error.message, 'error');
+            loadMapel();
         }
 
         async function editRilisHasilModal(id, currentValue) {
@@ -1784,6 +1954,7 @@
 
             const { value: formValues } = await Swal.fire({
                 title: 'Atur Waktu Rilis Hasil',
+                customClass: { popup: 'cbt-popup' },
                 html: `
                     <div class="text-left space-y-3">
                         <p class="text-sm text-slate-500">Tentukan kapan siswa baru bisa melihat hasil (benar/salah per nomor) untuk mapel ini. Kosongkan agar hasil bisa langsung dilihat begitu siswa menyelesaikan ujian.</p>
@@ -1813,14 +1984,22 @@
         async function addMapelModal() {
             const { value: formValues } = await Swal.fire({
                 title: 'Tambah Mata Pelajaran',
+                width: 'min(460px, 92vw)',
+                customClass: { popup: 'cbt-popup' },
                 html: `
-                    <div class="text-left space-y-3">
-                        <div><label class="text-sm font-medium text-slate-600">Nama Mata Pelajaran</label>
-                        <input id="swal-mapel-nama" class="swal2-input mt-1" placeholder="Contoh: Matematika"></div>
-                        <div><label class="text-sm font-medium text-slate-600">Kode Mata Pelajaran</label>
-                        <input id="swal-mapel-kode" class="swal2-input mt-1" placeholder="Contoh: MTK-01"></div>
-                        <div><label class="text-sm font-medium text-slate-600">Durasi Ujian (menit)</label>
-                        <input id="swal-mapel-durasi" type="number" class="swal2-input mt-1" placeholder="Contoh: 90" min="1"></div>
+                    <div class="text-left space-y-3.5">
+                        ${swalInput({ id: 'swal-mapel-nama', label: 'Nama Mata Pelajaran', icon: 'fa-solid fa-book', placeholder: 'Contoh: Matematika' })}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            ${swalInput({ id: 'swal-mapel-kode', label: 'Kode Mata Pelajaran', icon: 'fa-solid fa-hashtag', placeholder: 'Contoh: MTK-01' })}
+                            ${swalInput({ id: 'swal-mapel-durasi', label: 'Durasi (menit)', icon: 'fa-regular fa-clock', type: 'number', placeholder: 'Contoh: 90', attrs: 'min="1"' })}
+                        </div>
+                        <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition">
+                            <input type="checkbox" id="swal-mapel-acak" checked class="cbt-checkbox w-5 h-5 mt-0.5 rounded text-primary cursor-pointer shrink-0">
+                            <span class="text-sm text-slate-700">
+                                <span class="font-semibold block">Izinkan Acak Urutan Soal</span>
+                                <span class="text-xs text-slate-500">Jika aktif, urutan soal dikacak otomatis untuk tiap peserta saat ujian dimulai</span>
+                            </span>
+                        </label>
                     </div>`,
                 focusConfirm: false,
                 showCancelButton: true,
@@ -1830,9 +2009,10 @@
                     const nama = document.getElementById('swal-mapel-nama').value;
                     const kode = document.getElementById('swal-mapel-kode').value;
                     const durasi = document.getElementById('swal-mapel-durasi').value;
+                    const acakSoal = document.getElementById('swal-mapel-acak').checked;
                     if(!nama || !kode || !durasi) { Swal.showValidationMessage('Semua field wajib diisi!'); return false; }
                     const token = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    return { nama_mapel: nama, kode_mapel: kode, durasi: parseInt(durasi), token: token };
+                    return { nama_mapel: nama, kode_mapel: kode, durasi: parseInt(durasi), token: token, acak_soal: acakSoal };
                 }
             });
             if(formValues) {
@@ -1860,7 +2040,16 @@
             await supabaseClient.from('subjects').update({ token }).eq('id', id);
             hideLoader();
             loadMapel();
-            Swal.fire('Token Diperbarui', `Token baru: <strong class="font-mono text-xl tracking-widest">${token}</strong>`, 'success');
+            Swal.fire({
+                title: 'Token Diperbarui',
+                customClass: { popup: 'cbt-popup' },
+                html: `
+                    <div class="flex flex-col items-center gap-3 mt-1">
+                        <div class="text-2xl sm:text-3xl font-mono font-bold tracking-widest text-primary bg-blue-50 px-6 py-3 rounded-xl">${token}</div>
+                        <button onclick="copyTokenToClipboard('${token}', this)" class="text-sm px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 active:scale-[0.98] transition"><i class="fa-regular fa-copy mr-1.5"></i> Salin Token</button>
+                    </div>`,
+                icon: 'success'
+            });
         }
 
         // --- Tambah Soal Manual ---
@@ -1870,26 +2059,33 @@
 
             const { value: formValues } = await Swal.fire({
                 title: 'Tambah Soal Baru',
-                width: '700px',
+                width: 'min(720px, 94vw)',
+                customClass: { popup: 'cbt-popup' },
                 html: `
-                    <div class="text-left space-y-3">
-                        <div><label class="text-sm font-medium text-slate-600">Pertanyaan</label>
-                        <textarea id="swal-soal" class="swal2-textarea mt-1 w-full" placeholder="Tulis soal di sini..." rows="3"></textarea></div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-sm font-medium text-slate-600">Pilihan A</label>
-                            <input id="swal-a" class="swal2-input mt-1" placeholder="Pilihan A"></div>
-                            <div><label class="text-sm font-medium text-slate-600">Pilihan B</label>
-                            <input id="swal-b" class="swal2-input mt-1" placeholder="Pilihan B"></div>
-                            <div><label class="text-sm font-medium text-slate-600">Pilihan C</label>
-                            <input id="swal-c" class="swal2-input mt-1" placeholder="Pilihan C"></div>
-                            <div><label class="text-sm font-medium text-slate-600">Pilihan D</label>
-                            <input id="swal-d" class="swal2-input mt-1" placeholder="Pilihan D"></div>
+                    <div class="text-left space-y-3.5">
+                        ${swalTextarea({ id: 'swal-soal', label: 'Pertanyaan', placeholder: 'Tulis soal di sini...', rows: 3 })}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            ${swalInput({ id: 'swal-a', label: 'Pilihan A', placeholder: 'Pilihan A' })}
+                            ${swalInput({ id: 'swal-b', label: 'Pilihan B', placeholder: 'Pilihan B' })}
+                            ${swalInput({ id: 'swal-c', label: 'Pilihan C', placeholder: 'Pilihan C' })}
+                            ${swalInput({ id: 'swal-d', label: 'Pilihan D', placeholder: 'Pilihan D' })}
                         </div>
-                        <div><label class="text-sm font-medium text-slate-600">Kunci Jawaban</label>
-                        <select id="swal-kunci" class="swal2-select mt-1">
-                            <option value="A">A</option><option value="B">B</option>
-                            <option value="C">C</option><option value="D">D</option>
-                        </select></div>
+                        ${swalSelect({ id: 'swal-kunci', label: 'Kunci Jawaban', icon: 'fa-solid fa-key', optionsHtml: '<option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>' })}
+
+                        <div class="border-t border-slate-200 pt-3.5">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1.5 text-left">Gambar Soal (Opsional)</label>
+                            <div class="flex flex-col sm:flex-row gap-2.5">
+                                <label class="cursor-pointer px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-medium text-slate-600 transition whitespace-nowrap text-center">
+                                    <i class="fa-solid fa-image mr-1.5"></i> Upload Gambar
+                                    <input type="file" id="swal-gambar-file" accept="image/*" class="hidden" onchange="previewSoalGambar(event)">
+                                </label>
+                                <input id="swal-gambar-url" type="text" placeholder="atau tempel URL gambar di sini" oninput="onSoalGambarUrlInput(this.value)" class="cbt-field-input flex-1 w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
+                            </div>
+                            <div id="swal-gambar-preview-wrap" class="hidden mt-2.5 relative inline-block">
+                                <img id="swal-gambar-preview" class="max-h-28 rounded-lg border border-slate-200" src="">
+                                <button type="button" onclick="clearSoalGambar()" title="Hapus gambar" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
                     </div>`,
                 focusConfirm: false,
                 showCancelButton: true,
@@ -1903,7 +2099,12 @@
                     const d = document.getElementById('swal-d').value;
                     const kunci = document.getElementById('swal-kunci').value;
                     if(!soal || !a || !b || !c || !d) { Swal.showValidationMessage('Semua field wajib diisi!'); return false; }
-                    return { subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci };
+
+                    const preview = document.getElementById('swal-gambar-preview');
+                    const urlVal = document.getElementById('swal-gambar-url').value.trim();
+                    const gambar = (preview && preview.dataset.base64) ? preview.dataset.base64 : (urlVal || null);
+
+                    return { subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci, gambar };
                 }
             });
             if(formValues) {
@@ -1916,11 +2117,48 @@
             }
         }
 
+        // --- Helper Gambar Soal (upload file -> base64, atau URL manual) ---
+        function previewSoalGambar(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            if(file.size > 1.5 * 1024 * 1024) {
+                Swal.showValidationMessage('Ukuran gambar maksimal 1.5MB. Gunakan gambar yang lebih kecil atau tempel URL gambar.');
+                event.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('swal-gambar-url').value = ''; // upload diprioritaskan, kosongkan URL manual
+                const preview = document.getElementById('swal-gambar-preview');
+                preview.src = e.target.result;
+                preview.dataset.base64 = e.target.result;
+                document.getElementById('swal-gambar-preview-wrap').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function onSoalGambarUrlInput(url) {
+            const preview = document.getElementById('swal-gambar-preview');
+            const wrap = document.getElementById('swal-gambar-preview-wrap');
+            delete preview.dataset.base64; // URL manual menggantikan upload sebelumnya
+            if(url) { preview.src = url; wrap.classList.remove('hidden'); }
+            else { wrap.classList.add('hidden'); }
+        }
+
+        function clearSoalGambar() {
+            const preview = document.getElementById('swal-gambar-preview');
+            delete preview.dataset.base64;
+            preview.src = '';
+            document.getElementById('swal-gambar-url').value = '';
+            document.getElementById('swal-gambar-file').value = '';
+            document.getElementById('swal-gambar-preview-wrap').classList.add('hidden');
+        }
+
         function downloadTemplateSoal() {
             const ws = XLSX.utils.aoa_to_sheet([
-                ['Soal', 'A', 'B', 'C', 'D', 'Kunci'],
-                ['Berapakah hasil dari 2 + 2?', '3', '4', '5', '6', 'B'],
-                ['Ibu kota Indonesia adalah?', 'Bandung', 'Surabaya', 'Jakarta', 'Medan', 'C'],
+                ['Soal', 'A', 'B', 'C', 'D', 'Kunci', 'Gambar'],
+                ['Berapakah hasil dari 2 + 2?', '3', '4', '5', '6', 'B', ''],
+                ['Ibu kota Indonesia adalah?', 'Bandung', 'Surabaya', 'Jakarta', 'Medan', 'C', ''],
             ]);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Soal');
@@ -2014,7 +2252,11 @@
 
             showLoader();
             try {
-                // 1. Ambil daftar soal mapel ini (urutan tetap/konsisten, dipakai sebagai penomoran kolom No.1, No.2, dst)
+                // 0. Ambil nama mapel (untuk nama file)
+                const { data: mapelInfo } = await supabaseClient.from('subjects').select('nama_mapel').eq('id', subjectId).single();
+                const namaMapel = mapelInfo?.nama_mapel || 'Mapel';
+
+                // 1. Ambil daftar soal mapel ini (urutan tetap/konsisten, dipakai sebagai penomoran kolom No.1, No.2, dst & kunci jawaban)
                 const { data: soalList, error: errSoal } = await supabaseClient
                     .from('questions')
                     .select('id, jawaban_benar')
@@ -2046,32 +2288,86 @@
                     jawabanPerExam[a.exam_id][a.question_id] = a.jawaban;
                 });
 
-                // 4. Susun header: No. Peserta, Nama, No.1..No.N, Benar, Salah, Kosong, Nilai
+                // Warna untuk styling sel (Excel ARGB tanpa '#')
+                const COLOR_HEADER_BG = '1E40AF', COLOR_HEADER_FONT = 'FFFFFF';
+                const COLOR_CORRECT_BG = 'C6EFCE', COLOR_CORRECT_FONT = '006100';
+                const COLOR_WRONG_BG = 'FFC7CE', COLOR_WRONG_FONT = '9C0006';
+                const COLOR_EMPTY_FONT = '94A3B8';
+
+                // ===================== SHEET 1: KUNCI JAWABAN (akan disembunyikan) =====================
+                const kunciRows = [['No. Soal', 'Kunci Jawaban']];
+                soalList.forEach((q, i) => kunciRows.push([i + 1, q.jawaban_benar]));
+                const wsKunci = XLSX.utils.aoa_to_sheet(kunciRows);
+                wsKunci['!cols'] = [{ wch: 10 }, { wch: 14 }];
+                ['A1', 'B1'].forEach(addr => {
+                    if(wsKunci[addr]) wsKunci[addr].s = { font: { bold: true, color: { rgb: COLOR_HEADER_FONT } }, fill: { fgColor: { rgb: COLOR_HEADER_BG } }, alignment: { horizontal: 'center' } };
+                });
+
+                // ===================== SHEET 2: REKAP JAWABAN PESERTA (diwarnai per soal) =====================
                 const header = ['No. Peserta', 'Nama Lengkap'];
                 soalList.forEach((q, i) => header.push('No.' + (i + 1)));
                 header.push('Benar', 'Salah', 'Kosong', 'Nilai');
 
                 const rows = [header];
+                const correctnessMap = []; // sejajar baris data, tiap entri: status per kolom soal ('benar' | 'salah' | null)
 
                 hasilData.forEach(r => {
                     const jwb = jawabanPerExam[r.exams.id] || {};
                     const row = [r.exams.users?.nomor_peserta || '-', r.exams.users?.nama || '-'];
+                    const statusRow = [];
 
                     soalList.forEach(q => {
                         const jawabanSiswa = jwb[q.id];
-                        if(!jawabanSiswa) row.push('K');               // Kosong / tidak dijawab
-                        else if(jawabanSiswa === q.jawaban_benar) row.push('B'); // Benar
-                        else row.push('S');                              // Salah
+                        if(!jawabanSiswa) { row.push('-'); statusRow.push(null); }            // Kosong / tidak dijawab
+                        else if(jawabanSiswa === q.jawaban_benar) { row.push(jawabanSiswa); statusRow.push('benar'); } // Benar -> tampilkan huruf yg dipilih
+                        else { row.push(jawabanSiswa); statusRow.push('salah'); }              // Salah -> tampilkan huruf yg dipilih
                     });
 
                     row.push(r.benar, r.salah, r.kosong, r.nilai);
                     rows.push(row);
+                    correctnessMap.push(statusRow);
                 });
 
                 const ws = XLSX.utils.aoa_to_sheet(rows);
+
+                // Lebar kolom
+                ws['!cols'] = [
+                    { wch: 14 }, { wch: 26 },
+                    ...soalList.map(() => ({ wch: 6 })),
+                    { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }
+                ];
+
+                // Styling header (baris pertama)
+                for(let c = 0; c < header.length; c++) {
+                    const addr = XLSX.utils.encode_cell({ r: 0, c });
+                    if(ws[addr]) ws[addr].s = { font: { bold: true, color: { rgb: COLOR_HEADER_FONT } }, fill: { fgColor: { rgb: COLOR_HEADER_BG } }, alignment: { horizontal: 'center', vertical: 'center' } };
+                }
+
+                // Styling tiap sel jawaban: hijau jika benar, merah jika salah, abu jika kosong
+                correctnessMap.forEach((statusRow, rowIdx) => {
+                    const excelRow = rowIdx + 1; // +1 karena baris ke-0 adalah header
+                    statusRow.forEach((status, qIdx) => {
+                        const col = 2 + qIdx; // kolom soal dimulai setelah No. Peserta (0) & Nama Lengkap (1)
+                        const addr = XLSX.utils.encode_cell({ r: excelRow, c: col });
+                        if(!ws[addr]) return;
+                        if(status === 'benar') ws[addr].s = { fill: { fgColor: { rgb: COLOR_CORRECT_BG } }, font: { color: { rgb: COLOR_CORRECT_FONT }, bold: true }, alignment: { horizontal: 'center' } };
+                        else if(status === 'salah') ws[addr].s = { fill: { fgColor: { rgb: COLOR_WRONG_BG } }, font: { color: { rgb: COLOR_WRONG_FONT }, bold: true }, alignment: { horizontal: 'center' } };
+                        else ws[addr].s = { font: { color: { rgb: COLOR_EMPTY_FONT } }, alignment: { horizontal: 'center' } };
+                    });
+                });
+
+                // ===================== GABUNGKAN WORKBOOK =====================
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Rekap Per Nomor');
-                XLSX.writeFile(wb, `Rekap_Nilai_PerNomor_${Date.now()}.xlsx`);
+                XLSX.utils.book_append_sheet(wb, wsKunci, 'Kunci Jawaban'); // Sheet 1 (hidden)
+                XLSX.utils.book_append_sheet(wb, ws, 'Rekap Peserta');      // Sheet 2 (visible)
+
+                // Sembunyikan Sheet 1 (Kunci Jawaban) secara default
+                wb.Workbook = wb.Workbook || {};
+                wb.Workbook.Sheets = wb.Workbook.Sheets || [];
+                wb.Workbook.Sheets[0] = { Hidden: 1 };
+
+                const safeName = namaMapel.replace(/[^a-zA-Z0-9]+/g, '_');
+                XLSX.writeFile(wb, `Hasil_Ujian_${safeName}_${Date.now()}.xlsx`);
 
             } catch(err) {
                 Swal.fire('Error', 'Gagal export: ' + err.message, 'error');
