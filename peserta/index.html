@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Data Akun Peserta - MTs YAPIKA Petanahan</title>
+
+<meta name="description" content="Halaman pencarian akun peserta SPMB MTs YAPIKA Tahun Ajaran 2026/2027.">
+
+<meta name="keywords" content="PPDB, MTs YAPIKA, Username, Password">
+
+<meta name="author" content="296 GROUP">
+
+<meta property="og:title" content="Data Akun Peserta">
+<meta property="og:description" content="Pencarian akun peserta PPDB">
+<meta property="og:type" content="website">
+
+<link rel="icon" href="
+https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Poppins,sans-serif;
+}
+
+body{
+
+background:#f3f7fb;
+
+}
+
+.container{
+
+max-width:1200px;
+margin:auto;
+padding:30px;
+
+}
+
+.header{
+
+text-align:center;
+margin-bottom:30px;
+
+}
+
+.header img{
+
+width:90px;
+margin-bottom:15px;
+
+}
+
+.header h1{
+
+font-size:30px;
+color:#003366;
+
+}
+
+.search-box{
+
+display:flex;
+justify-content:center;
+margin-bottom:25px;
+
+}
+
+.search{
+
+position:relative;
+width:500px;
+max-width:100%;
+
+}
+
+.search input{
+
+width:100%;
+padding:15px 50px 15px 20px;
+
+border:none;
+
+border-radius:50px;
+
+font-size:16px;
+
+background:white;
+
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+outline:none;
+
+transition:.3s;
+
+}
+
+.search input:focus{
+
+box-shadow:0 15px 30px rgba(0,80,180,.2);
+
+}
+
+.search span{
+
+position:absolute;
+
+right:18px;
+
+top:50%;
+
+transform:translateY(-50%);
+
+font-size:22px;
+
+color:#666;
+
+}
+
+.table-box{
+
+background:white;
+
+border-radius:15px;
+
+overflow:hidden;
+
+box-shadow:0 15px 40px rgba(0,0,0,.08);
+
+overflow-x:auto;
+
+}
+
+table{
+
+width:100%;
+
+border-collapse:collapse;
+
+}
+
+thead{
+
+background:#003366;
+
+color:white;
+
+}
+
+th,td{
+
+padding:15px;
+
+text-align:left;
+
+font-size:14px;
+
+}
+
+tbody tr:nth-child(even){
+
+background:#f9f9f9;
+
+}
+
+tbody tr:hover{
+
+background:#eef7ff;
+
+}
+
+@media(max-width:768px){
+
+.header h1{
+
+font-size:22px;
+
+}
+
+th,td{
+
+font-size:13px;
+
+padding:10px;
+
+}
+
+}
+.copy-box{
+
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px;
+
+}
+
+.copy-btn{
+
+border:none;
+background:#0d6efd;
+color:#fff;
+cursor:pointer;
+
+width:36px;
+height:36px;
+
+border-radius:10px;
+
+font-size:16px;
+
+transition:.25s;
+
+}
+
+.copy-btn:hover{
+
+background:#0b5ed7;
+transform:scale(1.08);
+
+}
+
+.copy-btn.success{
+
+background:#198754;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+
+<img src="
+https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png">
+
+<h1>DATA AKUN PESERTA</h1>
+
+</div>
+
+<div class="search-box">
+
+<div class="search">
+
+<input
+type="text"
+id="cari"
+placeholder="Ketik nama lengkap peserta...">
+
+<span>🔍</span>
+
+</div>
+
+</div>
+
+<div class="table-box">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>No</th>
+
+<th>Nama Lengkap</th>
+
+<th>Asal Sekolah</th>
+
+<th>Username</th>
+
+<th>Password</th>
+
+<th>Pilihan Kelas</th>
+
+</tr>
+
+</thead>
+
+<tbody id="hasil">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script src="database.js"></script>
+
+<script>
+
+const tbody = document.getElementById("hasil");
+const cari = document.getElementById("cari");
+
+// Pesan awal
+tbody.innerHTML = `
+<tr>
+    <td colspan="6" style="text-align:center;padding:40px;color:#777;">
+        🔍 Silakan ketik minimal 2 karakter untuk mencari data peserta.
+    </td>
+</tr>
+`;
+
+// Menampilkan data
+function tampil(data){
+
+    tbody.innerHTML = "";
+
+    data.forEach((d, i) => {
+
+        tbody.innerHTML += `
+        <tr>
+
+            <td>${i + 1}</td>
+
+            <td>${d.nama}</td>
+
+            <td>${d.asal}</td>
+
+            <td>
+                <div class="copy-box">
+                    <span>${d.username}</span>
+                    <button class="copy-btn"
+                        onclick="salin('${d.username}', this)">
+                        📋
+                    </button>
+                </div>
+            </td>
+
+            <td>
+                <div class="copy-box">
+                    <span>${d.password}</span>
+                    <button class="copy-btn"
+                        onclick="salin('${d.password}', this)">
+                        📋
+                    </button>
+                </div>
+            </td>
+
+            <td>${d.kelas}</td>
+
+        </tr>
+        `;
+
+    });
+
+}
+
+// Pencarian
+cari.addEventListener("input", function(){
+
+    const key = this.value.trim().toLowerCase();
+
+    // Kurang dari 2 karakter
+    if(key.length < 2){
+
+        tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align:center;padding:40px;color:#777;">
+                🔍 Silakan ketik minimal 2 karakter.
+            </td>
+        </tr>
+        `;
+
+        return;
+    }
+
+    // Filter database
+    const hasil = database.filter(item =>
+
+        item.nama.toLowerCase().includes(key) ||
+
+        item.asal.toLowerCase().includes(key) ||
+
+        item.username.toLowerCase().includes(key)
+
+    );
+
+    // Tidak ditemukan
+    if(hasil.length === 0){
+
+        tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align:center;padding:40px;color:#d9534f;">
+                Data tidak ditemukan.
+            </td>
+        </tr>
+        `;
+
+        return;
+    }
+
+    tampil(hasil);
+
+});
+
+// Salin Username / Password
+function salin(teks, tombol){
+
+    navigator.clipboard.writeText(teks);
+
+    tombol.innerHTML = "✓";
+    tombol.classList.add("success");
+
+    setTimeout(() => {
+
+        tombol.innerHTML = "📋";
+        tombol.classList.remove("success");
+
+    }, 1200);
+
+}
+
+</script>
+
+</body>
+</html>
