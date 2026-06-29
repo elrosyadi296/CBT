@@ -625,7 +625,7 @@
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
                             <thead class="uppercase bg-slate-100 text-slate-600 font-semibold text-xs border-b">
-                                <tr><th class="px-4 py-3">No. Peserta</th><th class="px-4 py-3">Nama Lengkap</th><th class="px-4 py-3 text-center">Benar</th><th class="px-4 py-3 text-center">Salah</th><th class="px-4 py-3 text-center font-bold text-primary">NILAI</th></tr>
+                                <tr><th class="px-4 py-3">No. Peserta</th><th class="px-4 py-3">Nama Lengkap</th><th class="px-4 py-3 text-center">Benar</th><th class="px-4 py-3 text-center">Salah</th><th class="px-4 py-3 text-center font-bold text-primary">NILAI</th><th class="px-4 py-3 text-center">Aksi</th></tr>
                             </thead>
                             <tbody id="tbl-hasil" class="divide-y divide-slate-100"></tbody>
                         </table>
@@ -1388,7 +1388,29 @@
             });
         }
 
+        function disableExamUI() {
+            // Nonaktifkan tombol Prev, Next/Selesai, dan SELESAI UJIAN
+            ['btn-prev', 'btn-next'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) { btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed'); }
+            });
+            // Nonaktifkan semua tombol navigasi soal
+            document.querySelectorAll('.btn-nav').forEach(btn => {
+                btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+            // Nonaktifkan semua radio pilihan jawaban
+            document.querySelectorAll('#q-options input[type="radio"]').forEach(r => r.disabled = true);
+            // Nonaktifkan checkbox ragu-ragu
+            const chkRagu = document.getElementById('chk-ragu');
+            if (chkRagu) chkRagu.disabled = true;
+            // Nonaktifkan tombol SELESAI UJIAN di panel navigasi (querySelector karena tidak punya id)
+            document.querySelectorAll('#exam-nav-panel button').forEach(btn => {
+                btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+        }
+
         function autoSubmitExam() {
+            disableExamUI();
             Swal.fire({ title: 'Waktu Habis!', text: 'Jawaban Anda dikirim secara otomatis.', icon: 'info', allowOutsideClick: false, showConfirmButton: false, timer: 3000 });
             processSubmit();
         }
@@ -1934,6 +1956,8 @@
 
             tbody.innerHTML = '';
             data.forEach(r => {
+                const namaSafe = (r.exams.users.nama || '').replace(/'/g, "\\'");
+                const nomorSafe = String(r.exams.users.nomor_peserta || '').replace(/'/g, "\\'");
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50">
                         <td data-label="No. Peserta" class="px-4 py-3 text-sm">${r.exams.users.nomor_peserta}</td>
@@ -1941,6 +1965,11 @@
                         <td data-label="Benar" class="px-4 py-3 text-center text-emerald-600 font-bold">${r.benar}</td>
                         <td data-label="Salah" class="px-4 py-3 text-center text-red-500">${r.salah}</td>
                         <td data-label="Nilai" class="px-4 py-3 text-center font-bold text-lg text-primary">${r.nilai}</td>
+                        <td data-label="Aksi" class="px-4 py-3 text-center">
+                            <button onclick="exportJawabanSiswa('${r.exam_id}', '${namaSafe}', '${nomorSafe}', ${r.benar}, ${r.salah}, ${r.kosong}, ${r.nilai})" title="Extrak Jawaban Siswa Ini" class="text-xs px-3 py-2 bg-emerald-50 text-emerald-700 font-semibold rounded-lg hover:bg-emerald-600 hover:text-white active:scale-[0.98] transition whitespace-nowrap">
+                                <i class="fa-solid fa-file-excel mr-1"></i> Extrak
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -2386,6 +2415,24 @@
             }
         }
 
+        // Supabase/PostgREST secara default membatasi hasil query maksimal 1000 baris per request.
+        // Jika data jawaban siswa (tabel 'answers') jumlahnya melebihi 1000 baris (jumlah peserta x jumlah soal),
+        // query biasa akan terpotong diam-diam sehingga sebagian jawaban tidak terambil (tampak "bolong-bolong").
+        // Helper ini mengambil SEMUA baris dengan paginasi .range() berulang sampai benar-benar habis.
+        async function fetchAllRows(buildQuery, pageSize = 1000) {
+            let allRows = [];
+            let from = 0;
+            while (true) {
+                const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                allRows = allRows.concat(data);
+                if (data.length < pageSize) break;
+                from += pageSize;
+            }
+            return allRows;
+        }
+
         async function exportHasilExcel() {
             const subjectId = document.getElementById('filter-hasil-mapel').value;
             if(!subjectId) return Swal.fire('Error', 'Pilih mapel terlebih dahulu', 'warning');
@@ -2397,29 +2444,35 @@
                 const namaMapel = mapelInfo?.nama_mapel || 'Mapel';
 
                 // 1. Ambil daftar soal mapel ini (urutan tetap/konsisten, dipakai sebagai penomoran kolom No.1, No.2, dst & kunci jawaban)
-                const { data: soalList, error: errSoal } = await supabaseClient
+                //    Pakai fetchAllRows agar tidak terpotong jika soal > 1000 (limit default Supabase)
+                const soalList = await fetchAllRows(() => supabaseClient
                     .from('questions')
                     .select('id, jawaban_benar')
                     .eq('subject_id', subjectId)
-                    .order('created_at', { ascending: true });
-                if(errSoal) throw errSoal;
+                    .order('created_at', { ascending: true })
+                );
                 if(!soalList || soalList.length === 0) { hideLoader(); return Swal.fire('Info', 'Belum ada soal untuk mapel ini', 'info'); }
 
                 // 2. Ambil data nilai peserta untuk mapel ini (sama seperti yang ditampilkan di tabel UI)
-                const { data: hasilData, error: errHasil } = await supabaseClient
+                //    Pakai fetchAllRows agar tidak terpotong jika peserta > 1000
+                const hasilData = await fetchAllRows(() => supabaseClient
                     .from('results')
                     .select('*, exams!inner(id, subject_id, users(nama, nomor_peserta))')
-                    .eq('exams.subject_id', subjectId);
-                if(errHasil) throw errHasil;
+                    .eq('exams.subject_id', subjectId)
+                );
                 if(!hasilData || hasilData.length === 0) { hideLoader(); return Swal.fire('Info', 'Belum ada peserta yang menyelesaikan ujian ini', 'info'); }
 
-                // 3. Ambil semua jawaban peserta untuk seluruh exam terkait, sekali query (efisien)
+                // 3. Ambil semua jawaban peserta untuk seluruh exam terkait
+                //    PENTING: ini sumber bug "jawaban bolong-bolong setelah nomor 25" -- query .in() tanpa
+                //    paginasi hanya mengembalikan maksimal 1000 baris dari Supabase (jumlah baris di tabel
+                //    'answers' = jumlah peserta x jumlah soal, jadi sangat mudah melebihi 1000 dan terpotong
+                //    diam-diam tanpa error). Sekarang diambil dengan fetchAllRows agar lengkap semua.
                 const examIds = hasilData.map(r => r.exams.id);
-                const { data: jawabanData, error: errJwb } = await supabaseClient
+                const jawabanData = await fetchAllRows(() => supabaseClient
                     .from('answers')
                     .select('exam_id, question_id, jawaban')
-                    .in('exam_id', examIds);
-                if(errJwb) throw errJwb;
+                    .in('exam_id', examIds)
+                );
 
                 // Susun jawaban per exam_id => { question_id: jawaban }
                 const jawabanPerExam = {};
@@ -2508,6 +2561,105 @@
 
                 const safeName = namaMapel.replace(/[^a-zA-Z0-9]+/g, '_');
                 XLSX.writeFile(wb, `Hasil_Ujian_${safeName}_${Date.now()}.xlsx`);
+
+            } catch(err) {
+                Swal.fire('Error', 'Gagal export: ' + err.message, 'error');
+            }
+            hideLoader();
+        }
+
+        // ===================== FITUR BARU: Extrak Jawaban per Siswa (satu siswa, satu file Excel) =====================
+        async function exportJawabanSiswa(examId, nama, nomorPeserta, benar, salah, kosong, nilai) {
+            const subjectId = document.getElementById('filter-hasil-mapel').value;
+            if(!subjectId) return Swal.fire('Error', 'Pilih mapel terlebih dahulu', 'warning');
+
+            showLoader();
+            try {
+                const { data: mapelInfo } = await supabaseClient.from('subjects').select('nama_mapel').eq('id', subjectId).single();
+                const namaMapel = mapelInfo?.nama_mapel || 'Mapel';
+
+                // Daftar soal mapel ini, urutan konsisten (created_at) -> jadi penomoran No.1, No.2, dst
+                const soalList = await fetchAllRows(() => supabaseClient
+                    .from('questions')
+                    .select('id, jawaban_benar')
+                    .eq('subject_id', subjectId)
+                    .order('created_at', { ascending: true })
+                );
+                if(!soalList || soalList.length === 0) { hideLoader(); return Swal.fire('Info', 'Belum ada soal untuk mapel ini', 'info'); }
+
+                // Jawaban siswa ini untuk exam tersebut (per-exam, jadi aman dari limit 1000 baris)
+                const jawabanData = await fetchAllRows(() => supabaseClient
+                    .from('answers')
+                    .select('question_id, jawaban')
+                    .eq('exam_id', examId)
+                );
+                const jawabanMap = {};
+                (jawabanData || []).forEach(a => { jawabanMap[a.question_id] = a.jawaban; });
+
+                const COLOR_HEADER_BG = '1E40AF', COLOR_HEADER_FONT = 'FFFFFF';
+                const COLOR_CORRECT_BG = 'C6EFCE', COLOR_CORRECT_FONT = '006100';
+                const COLOR_WRONG_BG = 'FFC7CE', COLOR_WRONG_FONT = '9C0006';
+                const COLOR_EMPTY_FONT = '94A3B8';
+
+                // ===== Sheet 1: Info Peserta =====
+                const infoRows = [
+                    ['No. Peserta', nomorPeserta],
+                    ['Nama', nama],
+                    ['Mata Pelajaran', namaMapel],
+                    ['Benar', benar],
+                    ['Salah', salah],
+                    ['Kosong', kosong],
+                    ['Nilai', nilai]
+                ];
+                const wsInfo = XLSX.utils.aoa_to_sheet(infoRows);
+                wsInfo['!cols'] = [{ wch: 16 }, { wch: 26 }];
+                ['A1','A2','A3','A4','A5','A6','A7'].forEach(addr => {
+                    if(wsInfo[addr]) wsInfo[addr].s = { font: { bold: true } };
+                });
+
+                // ===== Sheet 2: Rincian Jawaban per Soal =====
+                const header = ['No', 'Jawaban Siswa', 'Kunci', 'Status'];
+                const rows = [header];
+                const statusList = [];
+
+                soalList.forEach((q, i) => {
+                    const jawabanSiswa = jawabanMap[q.id];
+                    let status, tampil, statusLabel;
+                    if(!jawabanSiswa) { status = 'kosong'; tampil = '-'; statusLabel = 'Kosong'; }
+                    else if(jawabanSiswa === q.jawaban_benar) { status = 'benar'; tampil = jawabanSiswa; statusLabel = 'Benar'; }
+                    else { status = 'salah'; tampil = jawabanSiswa; statusLabel = 'Salah'; }
+                    rows.push([i + 1, tampil, q.jawaban_benar, statusLabel]);
+                    statusList.push(status);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 8 }, { wch: 10 }];
+
+                // Styling header
+                for(let c = 0; c < header.length; c++) {
+                    const addr = XLSX.utils.encode_cell({ r: 0, c });
+                    if(ws[addr]) ws[addr].s = { font: { bold: true, color: { rgb: COLOR_HEADER_FONT } }, fill: { fgColor: { rgb: COLOR_HEADER_BG } }, alignment: { horizontal: 'center' } };
+                }
+
+                // Styling tiap baris: hijau jika benar, merah jika salah, abu jika kosong
+                statusList.forEach((status, idx) => {
+                    const r = idx + 1;
+                    [1, 2, 3].forEach(c => {
+                        const addr = XLSX.utils.encode_cell({ r, c });
+                        if(!ws[addr]) return;
+                        if(status === 'benar') ws[addr].s = { fill: { fgColor: { rgb: COLOR_CORRECT_BG } }, font: { color: { rgb: COLOR_CORRECT_FONT }, bold: true }, alignment: { horizontal: 'center' } };
+                        else if(status === 'salah') ws[addr].s = { fill: { fgColor: { rgb: COLOR_WRONG_BG } }, font: { color: { rgb: COLOR_WRONG_FONT }, bold: true }, alignment: { horizontal: 'center' } };
+                        else ws[addr].s = { font: { color: { rgb: COLOR_EMPTY_FONT } }, alignment: { horizontal: 'center' } };
+                    });
+                });
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, wsInfo, 'Info Peserta');
+                XLSX.utils.book_append_sheet(wb, ws, 'Rincian Jawaban');
+
+                const safeNama = (nama || 'Siswa').replace(/[^a-zA-Z0-9]+/g, '_');
+                const safeMapel = namaMapel.replace(/[^a-zA-Z0-9]+/g, '_');
+                XLSX.writeFile(wb, `Jawaban_${safeNama}_${safeMapel}_${Date.now()}.xlsx`);
 
             } catch(err) {
                 Swal.fire('Error', 'Gagal export: ' + err.message, 'error');
