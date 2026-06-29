@@ -1,433 +1,269 @@
 <!DOCTYPE html>
-<html lang="id">
-<head>
-
+<html lang="id"><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Data Akun Peserta - MTs YAPIKA Petanahan</title>
-
-<meta name="description" content="Halaman pencarian akun peserta SPMB MTs YAPIKA Tahun Ajaran 2026/2027.">
-
-<meta name="keywords" content="PPDB, MTs YAPIKA, Username, Password">
-
-<meta name="author" content="296 GROUP">
-
-<meta property="og:title" content="Data Akun Peserta">
-<meta property="og:description" content="Pencarian akun peserta PPDB">
-<meta property="og:type" content="website">
-
-<link rel="icon" href="
-https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png">
-
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Akun Peserta SPMB MTs YAPIKA</title>
+<meta name="description" content="Pencarian akun peserta SPMB">
+<meta name="theme-color" content="#16213E">
+<link rel="icon" href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:Poppins,sans-serif;
+:root{
+  --ink:#16213E;
+  --ink-2:#2B3A67;
+  --gold:#C9A227;
+  --gold-soft:#E9DBA6;
+  --ivory:#F6F2E7;
+  --paper:#FFFFFF;
+  --muted:#6B7280;
+  --green:#2E8B57;
+  --danger:#B3392C;
+  --radius:18px;
+  --shadow:0 10px 30px -10px rgba(22,33,62,.18);
 }
-
+*{box-sizing:border-box}
 body{
-
-background:#f3f7fb;
-
+  margin:0;
+  font-family:'Plus Jakarta Sans',Arial,sans-serif;
+  color:var(--ink);
+  background:var(--ivory);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='none' stroke='%2316213E' stroke-opacity='0.05' stroke-width='1'%3E%3Cpath d='M32 2 L62 32 L32 62 L2 32 Z'/%3E%3Crect x='17' y='17' width='30' height='30' transform='rotate(45 32 32)'/%3E%3C/g%3E%3C/svg%3E");
+  min-height:100vh;
 }
+.wrap{max-width:1100px;margin:auto;padding:32px 20px 64px}
 
-.container{
-
-max-width:1200px;
-margin:auto;
-padding:30px;
-
+/* ---------- header ---------- */
+.header{text-align:center;padding:8px 0 28px}
+.seal{
+  width:108px;height:108px;margin:0 auto 18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--paper);
+  border:2px solid var(--gold);
+  box-shadow:0 0 0 6px var(--ivory),0 0 0 7px var(--gold-soft),var(--shadow);
+  animation:pop .5s cubic-bezier(.2,.9,.3,1.2);
 }
-
-.header{
-
-text-align:center;
-margin-bottom:30px;
-
-}
-
-.header img{
-
-width:90px;
-margin-bottom:15px;
-
-}
-
+.seal img{width:64px;height:64px;object-fit:contain}
 .header h1{
-
-font-size:30px;
-color:#003366;
-
+  font-family:'Fraunces',serif;font-weight:600;letter-spacing:.04em;
+  font-size:clamp(22px,4.2vw,34px);color:var(--ink);margin:0 0 6px;
 }
-
-.search-box{
-
-display:flex;
-justify-content:center;
-margin-bottom:25px;
-
+.header p.eyebrow{
+  margin:0;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--gold);font-weight:600;
 }
+.header p.sub{margin:10px auto 0;max-width:440px;color:var(--muted);font-size:14px;line-height:1.5}
 
-.search{
-
-position:relative;
-width:500px;
-max-width:100%;
-
-}
-
+/* ---------- search ---------- */
+.search{margin:26px auto;max-width:520px;position:sticky;top:14px;z-index:5}
+.search-box{position:relative}
 .search input{
-
-width:100%;
-padding:15px 50px 15px 20px;
-
-border:none;
-
-border-radius:50px;
-
-font-size:16px;
-
-background:white;
-
-box-shadow:0 10px 25px rgba(0,0,0,.08);
-
-outline:none;
-
-transition:.3s;
-
+  width:100%;padding:15px 50px 15px 22px;border-radius:999px;
+  border:1px solid #e1d9c4;background:var(--paper);
+  font-size:15px;color:var(--ink);box-shadow:var(--shadow);
+  transition:box-shadow .2s,border-color .2s;
 }
-
+.search input::placeholder{color:#a4a6b0}
 .search input:focus{
-
-box-shadow:0 15px 30px rgba(0,80,180,.2);
-
+  outline:none;border-color:var(--gold);
+  box-shadow:0 0 0 4px var(--gold-soft),var(--shadow);
 }
-
-.search span{
-
-position:absolute;
-
-right:18px;
-
-top:50%;
-
-transform:translateY(-50%);
-
-font-size:22px;
-
-color:#666;
-
+.search-box svg{
+  position:absolute;right:18px;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;stroke:var(--muted);pointer-events:none;
 }
+.hint{text-align:center;font-size:12px;color:var(--muted);margin-top:8px}
 
+/* ---------- table ---------- */
 .table-box{
+  background:var(--paper);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+table{width:100%;border-collapse:collapse}
+thead{display:none;background:var(--ink);color:#fff}
+thead th{
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:12.5px;
+  letter-spacing:.08em;text-transform:uppercase;text-align:left;padding:16px 14px;
+}
+tbody td{padding:14px;border-bottom:1px solid #f0ece1;font-size:14.5px;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fbf9f3}
 
-background:white;
+tr.fade{animation:rise .35s cubic-bezier(.2,.8,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{opacity:0;transform:scale(.6) rotate(-8deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
 
-border-radius:15px;
+.copy{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.copy span{
+  font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;
+  background:#f4f0e4;padding:5px 10px;border-radius:8px;letter-spacing:.02em;
+}
+.copy button{
+  flex:none;border:0;background:var(--ink);color:#fff;border-radius:8px;
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .2s,transform .15s;
+}
+.copy button:hover{background:var(--gold);transform:translateY(-1px)}
+.copy button:active{transform:scale(.92)}
+.copy button.ok{background:var(--green)}
+.copy svg{width:15px;height:15px;stroke:#fff;fill:none}
 
-overflow:hidden;
-
-box-shadow:0 15px 40px rgba(0,0,0,.08);
-
-overflow-x:auto;
-
+.badge{
+  display:inline-flex;padding:5px 14px;border-radius:999px;font-size:12px;font-weight:600;
+  background:linear-gradient(135deg,var(--gold-soft),var(--gold));color:#3a2c00;
+  letter-spacing:.02em;
 }
 
-table{
+.state{text-align:center;padding:48px 20px;color:var(--muted)}
+.state svg{width:38px;height:38px;stroke:var(--muted);margin-bottom:10px}
+.state.danger{color:var(--danger)}
+.state.danger svg{stroke:var(--danger)}
 
-width:100%;
-
-border-collapse:collapse;
-
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));
+  transform:translate(-50%,20px);opacity:0;
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:999px;
+  font-size:13.5px;display:flex;align-items:center;gap:8px;
+  border:1px solid var(--gold);box-shadow:var(--shadow);
+  transition:opacity .25s,transform .25s;pointer-events:none;
 }
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast svg{width:14px;height:14px;stroke:var(--gold)}
 
-thead{
+footer.note{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
 
-background:#003366;
-
-color:white;
-
-}
-
-th,td{
-
-padding:15px;
-
-text-align:left;
-
-font-size:14px;
-
-}
-
-tbody tr:nth-child(even){
-
-background:#f9f9f9;
-
-}
-
-tbody tr:hover{
-
-background:#eef7ff;
-
-}
-
+/* ---------- mobile cards ---------- */
 @media(max-width:768px){
-
-.header h1{
-
-font-size:22px;
-
+  thead{display:none!important}
+  table,tbody,tr,td{display:block;width:100%}
+  tbody tr{margin:14px;padding:14px 16px;border:1px solid #ece6d6;border-radius:14px;box-shadow:0 4px 14px -8px rgba(22,33,62,.15)}
+  tbody tr:hover{background:var(--paper)}
+  tbody td{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f4f1e7;padding:9px 0}
+  tbody tr td:last-child{border-bottom:none}
+  td:before{content:attr(data-label);font-weight:600;font-size:12px;color:var(--muted);margin-right:12px;flex:none}
+  .search{top:10px}
 }
 
-th,td{
-
-font-size:13px;
-
-padding:10px;
-
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important}
 }
-
-}
-.copy-box{
-
-display:flex;
-align-items:center;
-justify-content:space-between;
-gap:10px;
-
-}
-
-.copy-btn{
-
-border:none;
-background:#0d6efd;
-color:#fff;
-cursor:pointer;
-
-width:36px;
-height:36px;
-
-border-radius:10px;
-
-font-size:16px;
-
-transition:.25s;
-
-}
-
-.copy-btn:hover{
-
-background:#0b5ed7;
-transform:scale(1.08);
-
-}
-
-.copy-btn.success{
-
-background:#198754;
-
-}
-
-</style>
-
-</head>
-
+</style></head>
 <body>
+<div class="wrap">
 
-<div class="container">
+  <div class="header">
+    <div class="seal"><img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png" alt="Logo MTs"></div>
+    <p class="eyebrow">SPMB · MTs YAPIKA</p>
+    <h1>Data Akun Peserta</h1>
+    <p class="sub">Cari nama Anda untuk melihat username dan password akun ujian.</p>
+  </div>
 
-<div class="header">
+  <div class="search">
+    <div class="search-box">
+      <input id="cari" placeholder="Ketik nama peserta..." aria-label="Cari nama peserta" autocomplete="off">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    </div>
+  </div>
 
-<img src="
-https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEha5pmNV7RejR7fQsfHDay_HMmsh0-P70zXpwalcu04J5gfVmbxw7Coe3NCSibInVWPNE64yCf8grGPslX71deU8d0vrcrCvHsjHkbXV71xU0BK6KJ3sbbLEpCiIOswN9thZnu3cwg4QxzKXlO9WurE_qmQbtoFl0-Qh3XBvq2qUmtv_-h-NLSzytBA4W6x/s320-rw/Logo%20MTs.png">
+  <div class="table-box">
+    <table>
+      <thead id="head"><tr><th>No</th><th>Nama</th><th>Asal</th><th>Username</th><th>Password</th><th>Kelas</th></tr></thead>
+      <tbody id="hasil" aria-live="polite">
+        <tr><td colspan="6">
+          <div class="state">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <div>Ketik minimal 2 karakter untuk mencari.</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
 
-<h1>DATA AKUN PESERTA</h1>
-
+  <footer class="note">Data bersifat rahasia &mdash; hanya tampil sesuai nama yang Anda cari.</footer>
 </div>
 
-<div class="search-box">
-
-<div class="search">
-
-<input
-type="text"
-id="cari"
-placeholder="Ketik nama lengkap peserta...">
-
-<span>🔍</span>
-
-</div>
-
-</div>
-
-<div class="table-box">
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>No</th>
-
-<th>Nama Lengkap</th>
-
-<th>Asal Sekolah</th>
-
-<th>Username</th>
-
-<th>Password</th>
-
-<th>Pilihan Kelas</th>
-
-</tr>
-
-</thead>
-
-<tbody id="hasil">
-
-</tbody>
-
-</table>
-
-</div>
-
+<div id="toast" role="status">
+  <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+  <span id="toastText">Berhasil disalin</span>
 </div>
 
 <script src="database.js"></script>
-
 <script>
+const h = document.getElementById('hasil');
+const head = document.getElementById('head');
+const toast = document.getElementById('toast');
+const toastText = document.getElementById('toastText');
+let toastTimer;
 
-const tbody = document.getElementById("hasil");
-const cari = document.getElementById("cari");
-
-// Pesan awal
-tbody.innerHTML = `
-<tr>
-    <td colspan="6" style="text-align:center;padding:40px;color:#777;">
-        🔍 Silakan ketik minimal 2 karakter untuk mencari data peserta.
-    </td>
-</tr>
-`;
-
-// Menampilkan data
-function tampil(data){
-
-    tbody.innerHTML = "";
-
-    data.forEach((d, i) => {
-
-        tbody.innerHTML += `
-        <tr>
-
-            <td>${i + 1}</td>
-
-            <td>${d.nama}</td>
-
-            <td>${d.asal}</td>
-
-            <td>
-                <div class="copy-box">
-                    <span>${d.username}</span>
-                    <button class="copy-btn"
-                        onclick="salin('${d.username}', this)">
-                        📋
-                    </button>
-                </div>
-            </td>
-
-            <td>
-                <div class="copy-box">
-                    <span>${d.password}</span>
-                    <button class="copy-btn"
-                        onclick="salin('${d.password}', this)">
-                        📋
-                    </button>
-                </div>
-            </td>
-
-            <td>${d.kelas}</td>
-
-        </tr>
-        `;
-
-    });
-
+function showToast(t){
+  toastText.textContent = t;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
 }
 
-// Pencarian
-cari.addEventListener("input", function(){
-
-    const key = this.value.trim().toLowerCase();
-
-    // Kurang dari 2 karakter
-    if(key.length < 2){
-
-        tbody.innerHTML = `
-        <tr>
-            <td colspan="6" style="text-align:center;padding:40px;color:#777;">
-                🔍 Silakan ketik minimal 2 karakter.
-            </td>
-        </tr>
-        `;
-
-        return;
-    }
-
-    // Filter database
-    const hasil = database.filter(item =>
-
-        item.nama.toLowerCase().includes(key) ||
-
-        item.asal.toLowerCase().includes(key) ||
-
-        item.username.toLowerCase().includes(key)
-
-    );
-
-    // Tidak ditemukan
-    if(hasil.length === 0){
-
-        tbody.innerHTML = `
-        <tr>
-            <td colspan="6" style="text-align:center;padding:40px;color:#d9534f;">
-                Data tidak ditemukan.
-            </td>
-        </tr>
-        `;
-
-        return;
-    }
-
-    tampil(hasil);
-
-});
-
-// Salin Username / Password
-function salin(teks, tombol){
-
-    navigator.clipboard.writeText(teks);
-
-    tombol.innerHTML = "✓";
-    tombol.classList.add("success");
-
-    setTimeout(() => {
-
-        tombol.innerHTML = "📋";
-        tombol.classList.remove("success");
-
-    }, 1200);
-
+function salin(v, btn){
+  navigator.clipboard.writeText(v);
+  showToast('Berhasil disalin: ' + v);
+  if (btn){
+    const original = btn.innerHTML;
+    btn.classList.add('ok');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
+    setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = original; }, 1000);
+  }
 }
 
+const copyIcon = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function emptyState(msg, danger){
+  return `<tr><td colspan="6"><div class="state${danger ? ' danger' : ''}">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${
+      danger
+        ? '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>'
+        : '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'
+    }</svg><div>${msg}</div></div></td></tr>`;
+}
+
+function tampil(arr){
+  head.style.display = 'table-header-group';
+  h.innerHTML = arr.map((d, i) => `
+    <tr class="fade" style="animation-delay:${Math.min(i,8)*35}ms">
+      <td data-label="No">${i + 1}</td>
+      <td data-label="Nama">${escapeHtml(d.nama)}</td>
+      <td data-label="Asal">${escapeHtml(d.asal)}</td>
+      <td data-label="Username"><div class="copy"><span>${escapeHtml(d.username)}</span>
+        <button onclick="salin('${escapeHtml(d.username)}', this)" aria-label="Salin username">${copyIcon}</button></div></td>
+      <td data-label="Password"><div class="copy"><span>${escapeHtml(d.password)}</span>
+        <button onclick="salin('${escapeHtml(d.password)}', this)" aria-label="Salin password">${copyIcon}</button></div></td>
+      <td data-label="Kelas"><span class="badge">${escapeHtml(d.kelas)}</span></td>
+    </tr>`).join('');
+}
+
+let debounceTimer;
+document.getElementById('cari').oninput = e => {
+  clearTimeout(debounceTimer);
+  const k = e.target.value.trim().toLowerCase();
+  debounceTimer = setTimeout(() => {
+    if (k.length < 2){
+      head.style.display = 'none';
+      h.innerHTML = emptyState('Ketik minimal 2 karakter untuk mencari.');
+      return;
+    }
+    const r = database.filter(x => x.nama.toLowerCase().includes(k));
+    if (!r.length){
+      head.style.display = 'none';
+      h.innerHTML = emptyState('Data tidak ditemukan.', true);
+      return;
+    }
+    tampil(r);
+  }, 120);
+};
 </script>
-
-</body>
-</html>
+</body></html>
