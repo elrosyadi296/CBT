@@ -170,9 +170,9 @@ footer.note{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
 
   <div class="table-box">
     <table>
-      <thead id="head"><tr><th>No</th><th>Nama</th><th>Asal</th><th>Username</th><th>Password</th><th>Kelas</th></tr></thead>
+      <thead id="head"><tr><th>No</th><th>Nama Lengkap</th><th>Asal Sekolah</th><th>Ruang</th><th>Gelombang</th><th>Kelas</th><th>Username</th><th>Password</th></tr></thead>
       <tbody id="hasil" aria-live="polite">
-        <tr><td colspan="6">
+        <tr><td colspan="8">
           <div class="state">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <div>Ketik minimal 2 karakter untuk mencari.</div>
@@ -223,7 +223,7 @@ function escapeHtml(s){
 }
 
 function emptyState(msg, danger){
-  return `<tr><td colspan="6"><div class="state${danger ? ' danger' : ''}">
+  return `<tr><td colspan="8"><div class="state${danger ? ' danger' : ''}">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${
       danger
         ? '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>'
@@ -236,13 +236,15 @@ function tampil(arr){
   h.innerHTML = arr.map((d, i) => `
     <tr class="fade" style="animation-delay:${Math.min(i,8)*35}ms">
       <td data-label="No">${i + 1}</td>
-      <td data-label="Nama">${escapeHtml(d.nama)}</td>
-      <td data-label="Asal">${escapeHtml(d.asal)}</td>
+      <td data-label="Nama Lengkap">${escapeHtml(d.nama)}</td>
+      <td data-label="Asal Sekolah">${escapeHtml(d.asal)}</td>
+      <td data-label="Ruang">${escapeHtml(d.ruang || '-')}</td>
+      <td data-label="Gelombang">${escapeHtml(d.gelombang || '-')}</td>
+      <td data-label="Kelas"><span class="badge">${escapeHtml(d.kelas)}</span></td>
       <td data-label="Username"><div class="copy"><span>${escapeHtml(d.username)}</span>
         <button onclick="salin('${escapeHtml(d.username)}', this)" aria-label="Salin username">${copyIcon}</button></div></td>
       <td data-label="Password"><div class="copy"><span>${escapeHtml(d.password)}</span>
         <button onclick="salin('${escapeHtml(d.password)}', this)" aria-label="Salin password">${copyIcon}</button></div></td>
-      <td data-label="Kelas"><span class="badge">${escapeHtml(d.kelas)}</span></td>
     </tr>`).join('');
 }
 
