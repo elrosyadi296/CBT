@@ -195,5 +195,6 @@ const database = [
 {nama:"ULFA KHAIRUNNISA", asal:"SDN 1 BUMIREJO", ruang:"-", gelombang:"2", kelas:"KELAS KOMPETISI", username:"260096", password:"260096"},
 {nama:"WILDAN MUSHOFFA AHMAD ", asal:"SDN SINGOSARI ", ruang:"-", gelombang:"2", kelas:"KELAS KOMPETISI", username:"260139", password:"260139"},
 {nama:"YUNA AURORA DWI ALEXXA", asal:"SD N 1 TAMBAKMULYO", ruang:"-", gelombang:"2", kelas:"KELAS KOMPETISI", username:"260122", password:"260122"},
-{nama:"ZAKIYYATUL'ULYA", asal:"MI NURUL SULAIMAN", ruang:"-", gelombang:"2", kelas:"KELAS KOMPETISI", username:"260098", password:"260098"}
+{nama:"ZAKIYYATUL'ULYA", asal:"MI NURUL SULAIMAN", ruang:"-", gelombang:"2", kelas:"KELAS KOMPETISI", username:"260098", password:"260098"},
+{nama:"MUCHAMMAD FATICHUN NADA", asal:"SDN 3 SIDOLUHUR", ruang:"1", gelombang:"1", kelas:"KELAS REGULER", username:"20260107", password:"20260107"}
 ];
