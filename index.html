@@ -210,12 +210,17 @@
             .table-responsive td.td-noflex::before { display: block; margin-bottom: 0.25rem; }
         }
 
-        /* Question nav drawer on mobile (exam arena) */
+        /* Exam nav panel: always flex-column with contained overflow so the
+           "SELESAI UJIAN" button never gets pushed off-screen, on any device. */
+        #exam-nav-panel { display: flex; flex-direction: column; overflow: hidden; }
+        #exam-nav-scrollarea { overflow-y: auto; }
+
+        /* Question nav drawer on mobile & tablet (portrait + landscape) (exam arena) */
         @media (max-width: 1023px) {
             #exam-nav-panel {
                 position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
                 border-radius: 20px 20px 0 0 !important;
-                max-height: 70vh;
+                max-height: min(75dvh, 560px);
                 transform: translateY(calc(100% - 60px));
                 transition: transform 0.3s ease;
                 box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
@@ -225,6 +230,25 @@
             /* Reserve space so the fixed drawer handle never covers question footer controls */
             #st-exam-arena { padding-bottom: 68px; }
         }
+
+        /* Compact mode for short viewports: HP/tablet landscape, or small HP where
+           the exam arena + drawer would otherwise not fully fit on screen. */
+        @media (max-height: 700px) {
+            #st-exam-arena { gap: 0.5rem !important; }
+            .btn-nav { font-size: 0.72rem; min-height: 30px; }
+            #q-nav-grid { gap: 6px !important; }
+            #exam-nav-panel .p-3 { padding: 0.5rem !important; }
+        }
+        @media (max-height: 480px) {
+            #exam-nav-panel { max-height: 88dvh !important; }
+            #st-timer-box { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+        }
+
+        /* Very narrow phones: shrink base text slightly so option cards & buttons
+           don't get clipped or force horizontal scroll. */
+        @media (max-width: 360px) {
+            body { font-size: 13.5px; }
+        }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -233,6 +257,25 @@
     <div id="loader" class="hidden">
         <div class="spinner mb-4"></div>
         <p class="font-semibold text-primary">Memproses Data...</p>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- OVERLAY: FOKUS UJIAN (Fullscreen Lock)          -->
+    <!-- Muncul saat siswa keluar dari mode fullscreen selama ujian berlangsung. -->
+    <!-- Ujian tidak bisa dilanjutkan/diklik sampai siswa kembali ke fullscreen. -->
+    <!-- ============================================== -->
+    <div id="focus-lock-overlay" class="hidden fixed inset-0 z-[9998] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center px-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 sm:p-8 text-center fade-in">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-display font-bold text-lg text-slate-800 mb-2">Anda Keluar dari Mode Fokus Ujian</h3>
+            <p class="text-sm text-slate-500 mb-1">Timer ujian tetap berjalan. Pelanggaran fokus (keluar tab/fullscreen) tercatat otomatis.</p>
+            <p class="text-sm text-slate-600 font-semibold mb-6">Pelanggaran saat ini: <span id="focus-lock-count">0</span> / <span id="focus-lock-max">3</span></p>
+            <button onclick="reenterFullscreenLock()" class="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-800 active:scale-[0.98] transition shadow-md">
+                <i class="fa-solid fa-expand mr-2"></i>Kembali ke Mode Fokus
+            </button>
+        </div>
     </div>
 
     <!-- ============================================== -->
@@ -302,6 +345,7 @@
             </form>
 
             <p class="text-center text-xs text-slate-400 mt-6">&copy; <span id="login-year"></span> CBT - MTs YAPIKA.</p>
+            <p class="text-center text-[10px] text-slate-300 mt-1">Update terakhir: <span id="login-last-update"></span></p>
         </div>
     </div>
 
@@ -321,6 +365,9 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+                <div id="st-violation-badge" class="hidden bg-amber-100 text-amber-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm shadow-inner border border-amber-200" title="Jumlah pelanggaran fokus ujian (keluar tab/fullscreen)">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i><span id="st-violation-count">0</span>/<span id="st-violation-max">3</span>
+                </div>
                 <div id="st-timer-box" class="hidden bg-red-100 text-red-700 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-sm sm:text-lg shadow-inner border border-red-200 tabular-nums">
                     <i class="fa-regular fa-clock mr-1 sm:mr-2"></i><span id="st-timer">00:00:00</span>
                 </div>
@@ -409,20 +456,22 @@
                         <span class="text-xs font-semibold text-slate-500 mt-1"><i class="fa-solid fa-grip-lines mr-1"></i>Navigasi Soal — tarik ke atas</span>
                     </div>
 
-                    <div class="bg-white rounded-2xl lg:shadow-sm lg:border lg:border-slate-200 p-2 lg:p-4">
-                        <h3 class="hidden lg:block font-bold text-slate-700 mb-4 text-center border-b pb-2 font-display">Navigasi Soal</h3>
-                        <div id="q-nav-grid" class="grid grid-cols-6 xs:grid-cols-7 sm:grid-cols-8 lg:grid-cols-5 gap-2 max-h-[32vh] lg:max-h-96 overflow-y-auto p-1">
-                            <!-- Buttons Injected Here -->
-                        </div>
-                        <div class="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:text-xs text-slate-600">
-                            <div class="flex items-center gap-1"><div class="w-3 h-3 bg-success rounded-full shrink-0"></div> Sudah Dijawab</div>
-                            <div class="flex items-center gap-1"><div class="w-3 h-3 bg-white border border-slate-300 rounded-full shrink-0"></div> Belum Dijawab</div>
-                            <div class="flex items-center gap-1"><div class="w-3 h-3 bg-yellow-400 rounded-full shrink-0"></div> Ragu-ragu</div>
-                            <div class="flex items-center gap-1"><div class="w-3 h-3 bg-primary rounded-full shrink-0"></div> Posisi Saat Ini</div>
+                    <div id="exam-nav-scrollarea" class="flex-1 min-h-0 overflow-y-auto">
+                        <div class="bg-white rounded-2xl lg:shadow-sm lg:border lg:border-slate-200 p-2 lg:p-4">
+                            <h3 class="hidden lg:block font-bold text-slate-700 mb-4 text-center border-b pb-2 font-display">Navigasi Soal</h3>
+                            <div id="q-nav-grid" class="grid grid-cols-6 xs:grid-cols-7 sm:grid-cols-8 lg:grid-cols-5 gap-2 p-1">
+                                <!-- Buttons Injected Here -->
+                            </div>
+                            <div class="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:text-xs text-slate-600">
+                                <div class="flex items-center gap-1"><div class="w-3 h-3 bg-success rounded-full shrink-0"></div> Sudah Dijawab</div>
+                                <div class="flex items-center gap-1"><div class="w-3 h-3 bg-white border border-slate-300 rounded-full shrink-0"></div> Belum Dijawab</div>
+                                <div class="flex items-center gap-1"><div class="w-3 h-3 bg-yellow-400 rounded-full shrink-0"></div> Ragu-ragu</div>
+                                <div class="flex items-center gap-1"><div class="w-3 h-3 bg-primary rounded-full shrink-0"></div> Posisi Saat Ini</div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <button onclick="confirmSubmitExam()" class="w-full py-3.5 sm:py-4 bg-danger text-white rounded-2xl shadow-md hover:bg-red-600 active:scale-[0.98] font-bold text-base sm:text-lg transition-all mt-auto flex justify-center items-center gap-2">
+
+                    <button onclick="confirmSubmitExam()" class="shrink-0 w-full py-3 sm:py-4 bg-danger text-white rounded-2xl shadow-md hover:bg-red-600 active:scale-[0.98] font-bold text-sm sm:text-lg transition-all flex justify-center items-center gap-2">
                         <i class="fa-solid fa-flag-checkered"></i> SELESAI UJIAN
                     </button>
                 </div>
@@ -464,10 +513,11 @@
                     <li><a href="#" onclick="switchAdminMenu('hasil')" class="admin-menu flex items-center px-6 py-3 text-slate-300 hover:bg-slate-800 hover:text-white transition border-l-4 border-transparent" data-target="hasil"><i class="fa-solid fa-chart-bar w-6"></i> Hasil Ujian</a></li>
                 </ul>
             </nav>
-            <div class="p-4 border-t border-slate-800 shrink-0">
+            <div class="p-4 border-t border-slate-800 shrink-0 space-y-2">
                 <button onclick="logoutAdmin()" class="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-red-600 rounded text-slate-300 hover:text-white transition">
                     <i class="fa-solid fa-power-off"></i> Logout
                 </button>
+                <p class="text-center text-[10px] text-slate-500">Update terakhir: <span id="admin-last-update"></span></p>
             </div>
         </aside>
 
@@ -525,7 +575,17 @@
                             <button onclick="downloadTemplatePeserta()" class="px-3 sm:px-4 py-2 bg-slate-500 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-slate-600 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-download mr-1"></i> Template</button>
                             <button id="btn-bulk-delete-peserta" onclick="hapusTerpilihPeserta()" disabled class="px-3 sm:px-4 py-2 bg-danger text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-red-600 active:scale-[0.98] transition whitespace-nowrap opacity-50 cursor-not-allowed disabled:opacity-50"><i class="fa-solid fa-trash-can mr-1"></i> Hapus Terpilih (<span id="bulk-delete-count-peserta">0</span>)</button>
                         </div>
-                        <input type="text" id="search-peserta" oninput="filterPeserta()" placeholder="Cari peserta..." class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-full sm:w-56">
+                        <div class="flex gap-2 flex-wrap items-center">
+                            <select id="filter-kelas-peserta" onchange="filterPeserta()" class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary">
+                                <option value="">Semua Kelas</option>
+                            </select>
+                            <select id="sort-peserta" onchange="filterPeserta()" class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary">
+                                <option value="nama-asc">Nama A-Z</option>
+                                <option value="nama-desc">Nama Z-A</option>
+                                <option value="kelas-asc">Kelas A-Z</option>
+                            </select>
+                            <input type="text" id="search-peserta" oninput="filterPeserta()" placeholder="Cari peserta..." class="px-3 py-1.5 border rounded text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-full sm:w-56">
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
@@ -598,11 +658,38 @@
 
                 <!-- Monitoring Realtime -->
                 <div id="admin-monitor" class="admin-section hidden space-y-4">
-                    <div class="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4 mb-4">
-                        <div class="bg-white p-3 sm:p-4 rounded-lg border-l-4 border-slate-400 shadow-sm"><div class="text-xs text-slate-500">Belum Mulai</div><div class="text-lg sm:text-xl font-bold" id="mon-belum">0</div></div>
-                        <div class="bg-white p-3 sm:p-4 rounded-lg border-l-4 border-blue-500 shadow-sm"><div class="text-xs text-slate-500">Sedang Mengerjakan</div><div class="text-lg sm:text-xl font-bold" id="mon-sedang">0</div></div>
-                        <div class="bg-white p-3 sm:p-4 rounded-lg border-l-4 border-emerald-500 shadow-sm"><div class="text-xs text-slate-500">Selesai</div><div class="text-lg sm:text-xl font-bold" id="mon-selesai">0</div></div>
+                    <!-- Filter Bar: pisahkan data per Mapel / Kelas, plus tombol Extrak Log -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-end sm:flex-wrap">
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Mata Pelajaran</label>
+                            <select id="mon-filter-mapel" onchange="fetchMonitor()" class="w-full border rounded p-2 text-sm outline-none focus:border-primary">
+                                <option value="">Semua Mapel</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Kelas</label>
+                            <select id="mon-filter-kelas" onchange="fetchMonitor()" class="w-full border rounded p-2 text-sm outline-none focus:border-primary">
+                                <option value="">Semua Kelas</option>
+                            </select>
+                        </div>
+                        <label class="flex items-center gap-2 text-xs sm:text-sm text-slate-600 select-none cursor-pointer pb-2">
+                            <input type="checkbox" id="mon-filter-today" checked onchange="fetchMonitor()" class="cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer">
+                            Hari ini saja
+                        </label>
+                        <button onclick="exportMonitoringLog()" class="px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-emerald-700 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-file-excel mr-1"></i> Extrak Log</button>
                     </div>
+
+                    <!-- Kartu status sekaligus tombol filter -->
+                    <div class="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
+                        <button type="button" onclick="setMonitorStatusFilter('belum')" id="mon-card-belum" class="mon-status-card text-left bg-white p-3 sm:p-4 rounded-lg border-l-4 border-slate-400 shadow-sm transition hover:shadow-md" data-status="belum"><div class="text-xs text-slate-500">Belum Mulai</div><div class="text-lg sm:text-xl font-bold" id="mon-belum">0</div></button>
+                        <button type="button" onclick="setMonitorStatusFilter('mengerjakan')" id="mon-card-sedang" class="mon-status-card text-left bg-white p-3 sm:p-4 rounded-lg border-l-4 border-blue-500 shadow-sm transition hover:shadow-md" data-status="mengerjakan"><div class="text-xs text-slate-500">Sedang Mengerjakan</div><div class="text-lg sm:text-xl font-bold" id="mon-sedang">0</div></button>
+                        <button type="button" onclick="setMonitorStatusFilter('selesai')" id="mon-card-selesai" class="mon-status-card text-left bg-white p-3 sm:p-4 rounded-lg border-l-4 border-emerald-500 shadow-sm transition hover:shadow-md" data-status="selesai"><div class="text-xs text-slate-500">Selesai</div><div class="text-lg sm:text-xl font-bold" id="mon-selesai">0</div></button>
+                    </div>
+                    <div id="mon-filter-active-hint" class="hidden text-xs text-slate-500 flex items-center gap-2">
+                        <span>Filter status aktif: <strong id="mon-filter-active-label"></strong></span>
+                        <button onclick="setMonitorStatusFilter(null)" class="text-primary hover:underline">Tampilkan Semua</button>
+                    </div>
+
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <table class="table-responsive w-full text-left text-sm sm:whitespace-nowrap">
                             <thead class="uppercase bg-slate-100 text-slate-600 font-semibold text-xs border-b">
@@ -610,6 +697,10 @@
                             </thead>
                             <tbody id="tbl-monitor" class="divide-y divide-slate-100"></tbody>
                         </table>
+                        <div id="mon-empty-state" class="hidden text-center text-slate-400 py-10">
+                            <i class="fa-regular fa-clock text-2xl mb-2 block"></i>
+                            Belum ada ujian yang berlangsung untuk filter yang dipilih.
+                        </div>
                     </div>
                 </div>
 
@@ -644,6 +735,13 @@
          * GANTI URL DAN KEY DI BAWAH INI DENGAN PROJECT SUPABASE ANDA
          * ============================================================================
          */
+        /**
+         * PENANDA UPDATE TERAKHIR KODE
+         * Ubah nilai ini setiap kali melakukan perubahan besar pada file ini,
+         * agar mudah melacak versi kode yang sedang berjalan (tampil di footer Login & Sidebar Admin).
+         */
+        const APP_LAST_UPDATE = '02 Juli 2026';
+
         const SUPABASE_URL = 'https://zydheicrwufugserfjbx.supabase.co'; // GANTI INI
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZGhlaWNyd3VmdWdzZXJmamJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5ODQwODAsImV4cCI6MjA5NzU2MDA4MH0.Oi6FRdENV_daFN1U3KaFMraMmp6vdfNcQ5MV9Y6KLA8'; // GANTI INI
         
@@ -671,6 +769,8 @@
         let answers = {};
         let timerInterval = null;
         let currentQuestionIndex = 0;
+        let violationCount = 0;
+        const MAX_VIOLATIONS_BEFORE_AUTOSUBMIT = 3; // ubah angka ini jika ingin batas pelanggaran fokus yang berbeda
 
         /**
          * ============================================================================
@@ -708,6 +808,10 @@
         window.onload = async () => {
             const yearEl = document.getElementById('login-year');
             if(yearEl) yearEl.textContent = new Date().getFullYear();
+            const luLogin = document.getElementById('login-last-update');
+            if(luLogin) luLogin.textContent = APP_LAST_UPDATE;
+            const luAdmin = document.getElementById('admin-last-update');
+            if(luAdmin) luAdmin.textContent = APP_LAST_UPDATE;
 
             if(currentAdmin) {
                 switchView('view-admin');
@@ -731,6 +835,41 @@
                 if (document.hidden && currentExam && currentUser) {
                     recordViolation('Berpindah Tab / Membuka Aplikasi Lain');
                 }
+            });
+
+            // Security: Blokir kombinasi tombol yang bisa dipakai untuk keluar fokus ujian.
+            // CATATAN JUJUR: browser modern (Chrome/Firefox/Edge) SENGAJA tidak mengizinkan
+            // situs web memblokir Ctrl+T / Ctrl+N (buka tab/jendela baru) demi keamanan pengguna,
+            // jadi shortcut itu tidak bisa benar-benar dicegah dari JavaScript. Yang bisa diblokir
+            // (dan efektif) adalah DevTools, view-source, save-page, print, dan new-window lawas.
+            document.addEventListener('keydown', (e) => {
+                if (!currentExam || !currentUser) return; // hanya aktif saat ujian berlangsung
+                const key = e.key ? e.key.toLowerCase() : '';
+                const blockedCombos =
+                    (e.key === 'F12') ||                                  // DevTools
+                    (e.ctrlKey && e.shiftKey && ['i','j','c'].includes(key)) || // DevTools (Ctrl+Shift+I/J/C)
+                    (e.ctrlKey && key === 'u') ||                          // View Source
+                    (e.ctrlKey && key === 's') ||                          // Save Page
+                    (e.ctrlKey && key === 'p') ||                          // Print
+                    (e.ctrlKey && key === 'w');                            // Close Tab (blockable di beberapa browser)
+                if (blockedCombos) {
+                    e.preventDefault();
+                    recordViolation('Mencoba membuka DevTools / shortcut terlarang saat ujian');
+                }
+            });
+
+            // Security: Deteksi keluar dari mode Fullscreen selama ujian berlangsung.
+            ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+                document.addEventListener(evt, () => {
+                    if (!currentExam || !currentUser) return;
+                    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+                    if (!isFullscreen) {
+                        showFocusLockOverlay();
+                        recordViolation('Keluar dari Mode Fullscreen');
+                    } else {
+                        hideFocusLockOverlay();
+                    }
+                });
             });
         };
 
@@ -804,6 +943,7 @@
                 confirmButtonText: 'Ya, Keluar'
             }).then((result) => {
                 if (result.isConfirmed) {
+                    if(sessionWatcherInterval) { clearInterval(sessionWatcherInterval); sessionWatcherInterval = null; }
                     if(supabaseClient && currentUser) supabaseClient.from('users').update({ session_id: null }).eq('id', currentUser.id);
                     localStorage.removeItem('cbt_user');
                     localStorage.removeItem('cbt_exam_state');
@@ -873,12 +1013,48 @@
             document.getElementById('st-nama').textContent = currentUser.nama;
             document.getElementById('st-info').textContent = `NIS: ${currentUser.nomor_peserta} | Kelas: ${currentUser.kelas}`;
             
+            startSessionWatcher(); // Cegah 1 akun aktif di 2 lokasi/perangkat sekaligus
+
             // Cek apakah sedang ada ujian berlangsung
             if(currentExam) {
                 resumeExam();
             } else {
                 showStudentDashboard();
             }
+        }
+
+        /**
+         * ============================================================================
+         * PROTEKSI SESI TUNGGAL (1 akun tidak bisa aktif di 2 lokasi bersamaan)
+         * Setiap login baru menimpa kolom session_id milik user di database (lihat
+         * handleLoginSiswa). Watcher ini mengecek berkala apakah session_id di server
+         * masih sama dengan session_id yang dipegang perangkat ini; jika berbeda berarti
+         * akun sudah login ulang di perangkat/lokasi lain, sehingga sesi ini dipaksa keluar.
+         * ============================================================================
+         */
+        let sessionWatcherInterval = null;
+        function startSessionWatcher() {
+            if(!supabaseClient || !currentUser) return;
+            if(sessionWatcherInterval) clearInterval(sessionWatcherInterval);
+            sessionWatcherInterval = setInterval(async () => {
+                try {
+                    const { data, error } = await supabaseClient.from('users').select('session_id').eq('id', currentUser.id).single();
+                    if(error || !data) return;
+                    if(data.session_id && currentUser.session_id && data.session_id !== currentUser.session_id) {
+                        clearInterval(sessionWatcherInterval);
+                        sessionWatcherInterval = null;
+                        localStorage.removeItem('cbt_user');
+                        localStorage.removeItem('cbt_exam_state');
+                        Swal.fire({
+                            title: 'Sesi Berakhir',
+                            text: 'Akun Anda baru saja login di perangkat/lokasi lain, sehingga sesi ini otomatis diakhiri untuk keamanan.',
+                            icon: 'warning',
+                            allowOutsideClick: false,
+                            confirmButtonText: 'Mengerti'
+                        }).then(() => window.location.reload());
+                    }
+                } catch(e) { console.error('Session watcher error', e); }
+            }, 20000); // cek tiap 20 detik
         }
 
         async function showStudentDashboard() {
@@ -1204,6 +1380,70 @@
             renderNavGrid();
             renderQuestion();
             startTimer();
+            initFocusEnforcement();
+        }
+
+        /**
+         * ============================================================================
+         * MODUL FOKUS UJIAN (Fullscreen Lock + Anti Buka Tab)
+         * Kombinasi: mode fullscreen wajib selama ujian, deteksi keluar
+         * tab/fullscreen, blokir shortcut yang bisa diblokir browser, dan
+         * auto-submit ujian jika pelanggaran melebihi MAX_VIOLATIONS_BEFORE_AUTOSUBMIT.
+         * ============================================================================
+         */
+        async function initFocusEnforcement() {
+            document.getElementById('st-violation-badge').classList.remove('hidden');
+            document.getElementById('st-violation-max').textContent = MAX_VIOLATIONS_BEFORE_AUTOSUBMIT;
+            document.getElementById('focus-lock-max').textContent = MAX_VIOLATIONS_BEFORE_AUTOSUBMIT;
+
+            // Sinkronkan hitungan pelanggaran dari database, agar refresh halaman TIDAK mereset penghitung
+            if(supabaseClient && currentExam) {
+                const { count } = await supabaseClient.from('violations').select('*', { count: 'exact', head: true }).eq('exam_id', currentExam.examId);
+                violationCount = count || 0;
+                updateViolationBadge();
+            }
+
+            enterFullscreen();
+        }
+
+        function updateViolationBadge() {
+            const c1 = document.getElementById('st-violation-count');
+            const c2 = document.getElementById('focus-lock-count');
+            if(c1) c1.textContent = violationCount;
+            if(c2) c2.textContent = violationCount;
+        }
+
+        function enterFullscreen() {
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+            if(!req) { hideFocusLockOverlay(); return; } // browser tidak mendukung Fullscreen API, lewati saja
+            req.call(el).then(() => hideFocusLockOverlay()).catch(() => {
+                // Gagal minta fullscreen otomatis (browser butuh klik langsung) -> tampilkan overlay
+                // agar siswa menekan tombol "Kembali ke Mode Fokus" secara manual (klik = user gesture sah)
+                showFocusLockOverlay();
+            });
+        }
+
+        function reenterFullscreenLock() {
+            enterFullscreen();
+        }
+
+        function showFocusLockOverlay() {
+            const overlay = document.getElementById('focus-lock-overlay');
+            if(overlay) overlay.classList.remove('hidden');
+        }
+
+        function hideFocusLockOverlay() {
+            const overlay = document.getElementById('focus-lock-overlay');
+            if(overlay) overlay.classList.add('hidden');
+        }
+
+        function exitFocusEnforcement() {
+            hideFocusLockOverlay();
+            document.getElementById('st-violation-badge').classList.add('hidden');
+            const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+            const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            if(exitFs && isFullscreen) { exitFs.call(document).catch(() => {}); }
         }
 
         function renderNavGrid() {
@@ -1415,9 +1655,10 @@
             processSubmit();
         }
 
-        async function processSubmit() {
+        async function processSubmit(autoReason = null) {
             showLoader();
             clearInterval(timerInterval);
+            exitFocusEnforcement(); // lepas fullscreen lock & sembunyikan badge/overlay
             
             if(supabaseClient) {
                 try {
@@ -1450,9 +1691,15 @@
             currentExam = null;
             hideLoader();
             
-            Swal.fire('Berhasil', 'Ujian telah diselesaikan.', 'success').then(() => {
-                window.location.reload();
-            });
+            if(autoReason) {
+                Swal.fire({ title: 'Ujian Dihentikan Otomatis', text: autoReason, icon: 'error', allowOutsideClick: false, confirmButtonText: 'Mengerti' }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Berhasil', 'Ujian telah diselesaikan.', 'success').then(() => {
+                    window.location.reload();
+                });
+            }
         }
 
         async function recordViolation(jenis) {
@@ -1462,6 +1709,29 @@
                 exam_id: currentExam.examId,
                 jenis_pelanggaran: jenis
             });
+
+            violationCount++;
+            updateViolationBadge();
+            const badge = document.getElementById('st-violation-badge');
+            if(badge) badge.classList.remove('hidden');
+
+            if(violationCount >= MAX_VIOLATIONS_BEFORE_AUTOSUBMIT) {
+                disableExamUI();
+                processSubmit(`Anda melebihi batas pelanggaran fokus ujian (${violationCount} kali: keluar tab/fullscreen/shortcut terlarang). Jawaban Anda dikirim secara otomatis.`);
+                return;
+            }
+
+            // Peringatan singkat (toast) untuk pelanggaran yang belum mencapai batas.
+            // Untuk pelanggaran fullscreen, overlay "Kembali ke Mode Fokus" sudah cukup jadi peringatan,
+            // jadi toast hanya ditampilkan jika overlay sedang tidak muncul (misal: berpindah tab / shortcut).
+            const overlay = document.getElementById('focus-lock-overlay');
+            if(overlay && overlay.classList.contains('hidden') && typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true, position: 'top', icon: 'warning',
+                    title: `Pelanggaran fokus terekam (${violationCount}/${MAX_VIOLATIONS_BEFORE_AUTOSUBMIT}): ${jenis}`,
+                    showConfirmButton: false, timer: 3200, timerProgressBar: true
+                });
+            }
         }
 
 
@@ -1600,6 +1870,8 @@
         // --- CRUD Peserta ---
         let selectedPeserta = new Set();
 
+        let pesertaDataCache = []; // cache data peserta mentah, dipakai ulang saat filter/sortir tanpa fetch ulang
+
         async function loadPeserta() {
             if(!supabaseClient) return;
             selectedPeserta.clear();
@@ -1608,14 +1880,47 @@
             
             const { data, error } = await supabaseClient.from('users').select('*').eq('role', 'siswa').order('nama', { ascending: true });
             if(error) return;
-            
-            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada peserta</td></tr>'; updateBulkDeleteState(); return; }
+            pesertaDataCache = data || [];
+
+            // Isi dropdown filter Kelas dari kelas-kelas yang benar-benar ada di data peserta
+            const selKelas = document.getElementById('filter-kelas-peserta');
+            const prevKelas = selKelas.value;
+            const kelasUnik = [...new Set(pesertaDataCache.map(p => p.kelas).filter(Boolean))].sort();
+            selKelas.innerHTML = '<option value="">Semua Kelas</option>' + kelasUnik.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
+            selKelas.value = prevKelas || '';
+
+            renderPesertaTable(applyPesertaFilters());
+        }
+
+        // Menerapkan pencarian + filter kelas + sortir terhadap cache data peserta, tanpa fetch ulang ke server
+        function applyPesertaFilters() {
+            const keyword = (document.getElementById('search-peserta')?.value || '').toLowerCase().trim();
+            const kelasFilter = document.getElementById('filter-kelas-peserta')?.value || '';
+            const sortBy = document.getElementById('sort-peserta')?.value || 'nama-asc';
+
+            let rows = pesertaDataCache.filter(p => {
+                if(kelasFilter && p.kelas !== kelasFilter) return false;
+                if(keyword && !(p.nama || '').toLowerCase().includes(keyword)) return false;
+                return true;
+            });
+
+            rows.sort((a, b) => {
+                if(sortBy === 'nama-desc') return (b.nama || '').localeCompare(a.nama || '');
+                if(sortBy === 'kelas-asc') return (a.kelas || '').localeCompare(b.kelas || '') || (a.nama || '').localeCompare(b.nama || '');
+                return (a.nama || '').localeCompare(b.nama || ''); // default: nama-asc
+            });
+            return rows;
+        }
+
+        function renderPesertaTable(data) {
+            const tbody = document.getElementById('tbl-peserta');
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-slate-400">Tidak ada peserta yang cocok dengan filter</td></tr>'; updateBulkDeleteState(); return; }
 
             tbody.innerHTML = '';
             data.forEach(p => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50">
-                        <td data-label="Pilih" class="px-4 py-4"><input type="checkbox" class="chk-peserta cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" value="${p.id}" onchange="updateBulkDeleteState()"></td>
+                        <td data-label="Pilih" class="px-4 py-4"><input type="checkbox" class="chk-peserta cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" value="${p.id}" ${selectedPeserta.has(p.id) ? 'checked' : ''} onchange="updateBulkDeleteState()"></td>
                         <td data-label="Nama Lengkap" class="px-6 py-4 font-medium text-slate-800">${p.nama}</td>
                         <td data-label="No. Peserta" class="px-6 py-4 text-slate-500">${p.nomor_peserta}</td>
                         <td data-label="Kelas" class="px-6 py-4"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">${p.kelas}</span></td>
@@ -1629,12 +1934,7 @@
         }
 
         function filterPeserta() {
-            const keyword = document.getElementById('search-peserta').value.toLowerCase().trim();
-            document.querySelectorAll('#tbl-peserta tr').forEach(tr => {
-                const namaCell = tr.querySelector('td[data-label="Nama Lengkap"]');
-                if(!namaCell) return; // baris loading/kosong tidak punya kolom ini, lewati
-                tr.style.display = namaCell.textContent.toLowerCase().includes(keyword) ? '' : 'none';
-            });
+            renderPesertaTable(applyPesertaFilters());
         }
 
         function toggleAllPeserta(el) {
@@ -1881,54 +2181,239 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- Realtime Monitoring ---
+        // --- Realtime Monitoring (dengan filter Mapel/Kelas/Status & pemisahan sesi) ---
         let monitorSubscription = null;
+        let monitorStatusFilter = null; // null = semua, atau 'belum' | 'mengerjakan' | 'selesai'
+        let monitorLastData = []; // cache hasil fetch terakhir (dipakai oleh Extrak Log)
+
         async function initMonitoring() {
             if(!supabaseClient) return;
-            
-            const fetchMonitor = async () => {
-                const { data } = await supabaseClient.from('exams').select('*, users(nama, kelas), subjects(nama_mapel)').order('waktu_mulai', {ascending: false});
-                
-                let sedang = 0, selesai = 0;
-                const tbody = document.getElementById('tbl-monitor');
-                tbody.innerHTML = '';
-                
-                if(data) {
-                    data.forEach(e => {
-                        if(e.status === 'mengerjakan') sedang++;
-                        else selesai++;
-                        
-                        const statusBadge = e.status === 'mengerjakan' 
-                            ? '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs animate-pulse">Mengerjakan</span>'
-                            : '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs">Selesai</span>';
+            monitorStatusFilter = null;
+            updateMonitorFilterCardsUI();
 
-                        tbody.innerHTML += `
-                            <tr>
-                                <td data-label="Nama Peserta" class="td-noflex px-4 py-3"><div class="font-semibold text-slate-800">${e.users?.nama || 'Unknown'}</div><div class="text-xs text-slate-500">${e.users?.kelas || ''}</div></td>
-                                <td data-label="Mapel" class="px-4 py-3 text-sm">${e.subjects?.nama_mapel || '-'}</td>
-                                <td data-label="Mulai" class="px-4 py-3 text-sm">${new Date(e.waktu_mulai).toLocaleTimeString()}</td>
-                                <td data-label="Status" class="px-4 py-3">${statusBadge}</td>
-                                <td data-label="Aksi" class="px-4 py-3 text-center"><button class="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-xs">Force Stop</button></td>
-                            </tr>
-                        `;
-                    });
-                }
-                document.getElementById('mon-sedang').innerText = sedang;
-                document.getElementById('mon-selesai').innerText = selesai;
-                
-                const { count: totalUser } = await supabaseClient.from('users').select('*', { count: 'exact', head: true }).eq('role', 'siswa');
-                document.getElementById('mon-belum').innerText = (totalUser - sedang - selesai) > 0 ? (totalUser - sedang - selesai) : 0;
-            };
+            // Isi dropdown Mapel & Kelas (agar admin bisa memisahkan monitoring 2 ujian yang berlangsung bersamaan)
+            const [{ data: mapelList }, { data: userList }] = await Promise.all([
+                supabaseClient.from('subjects').select('id, nama_mapel').order('nama_mapel'),
+                supabaseClient.from('users').select('kelas').eq('role', 'siswa')
+            ]);
+            const selMapel = document.getElementById('mon-filter-mapel');
+            const prevMapel = selMapel.value;
+            selMapel.innerHTML = '<option value="">Semua Mapel</option>' + (mapelList || []).map(m => `<option value="${m.id}">${m.nama_mapel}</option>`).join('');
+            selMapel.value = prevMapel || '';
+
+            const selKelas = document.getElementById('mon-filter-kelas');
+            const prevKelas = selKelas.value;
+            const kelasUnik = [...new Set((userList || []).map(u => u.kelas).filter(Boolean))].sort();
+            selKelas.innerHTML = '<option value="">Semua Kelas</option>' + kelasUnik.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
+            selKelas.value = prevKelas || '';
 
             fetchMonitor();
 
-            // Realtime setup
+            // Realtime setup: refetch otomatis saat ada perubahan status ujian (mulai/selesai)
             if(monitorSubscription) supabaseClient.removeChannel(monitorSubscription);
             monitorSubscription = supabaseClient.channel('public:exams')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, payload => {
-                    fetchMonitor(); // Refetch on change for simplicity
-                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, () => fetchMonitor())
                 .subscribe();
+        }
+
+        function setMonitorStatusFilter(status) {
+            monitorStatusFilter = (monitorStatusFilter === status) ? null : status;
+            updateMonitorFilterCardsUI();
+            renderMonitorTable(monitorLastData);
+        }
+
+        function updateMonitorFilterCardsUI() {
+            const labels = { belum: 'Belum Mulai', mengerjakan: 'Sedang Mengerjakan', selesai: 'Selesai' };
+            document.querySelectorAll('.mon-status-card').forEach(card => {
+                const isActive = monitorStatusFilter && card.dataset.status === monitorStatusFilter;
+                card.classList.toggle('ring-2', !!isActive);
+                card.classList.toggle('ring-primary', !!isActive);
+            });
+            const hint = document.getElementById('mon-filter-active-hint');
+            if(monitorStatusFilter) {
+                hint.classList.remove('hidden');
+                document.getElementById('mon-filter-active-label').textContent = labels[monitorStatusFilter];
+            } else {
+                hint.classList.add('hidden');
+            }
+        }
+
+        // Ambil data ujian sesuai filter Mapel/Kelas/Hari-ini, lalu render tabel + kartu ringkasan.
+        // Jika tidak ada ujian yang cocok dengan filter (misal jadwal sudah lewat waktu selesainya),
+        // tabel akan otomatis kosong dan menampilkan notifikasi "Belum ada ujian berlangsung".
+        async function fetchMonitor() {
+            if(!supabaseClient) return;
+            const subjectId = document.getElementById('mon-filter-mapel').value;
+            const kelas = document.getElementById('mon-filter-kelas').value;
+            const todayOnly = document.getElementById('mon-filter-today').checked;
+
+            let query = supabaseClient.from('exams').select('*, users(nama, kelas), subjects(nama_mapel)').order('waktu_mulai', { ascending: false });
+            if(subjectId) query = query.eq('subject_id', subjectId);
+            if(todayOnly) {
+                const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+                query = query.gte('waktu_mulai', startOfDay.toISOString());
+            }
+            const { data } = await query;
+
+            // Filter kelas dilakukan di client karena kolom kelas berada di tabel users (relasi)
+            let filtered = (data || []);
+            if(kelas) filtered = filtered.filter(e => e.users?.kelas === kelas);
+
+            monitorLastData = filtered;
+            renderMonitorTable(filtered);
+
+            // Hitung "Belum Mulai": total peserta (sesuai filter kelas) dikurangi yang sudah punya baris exam untuk filter mapel ini
+            let totalUserQuery = supabaseClient.from('users').select('*', { count: 'exact', head: true }).eq('role', 'siswa');
+            if(kelas) totalUserQuery = totalUserQuery.eq('kelas', kelas);
+            const { count: totalUser } = await totalUserQuery;
+
+            const sedang = filtered.filter(e => e.status === 'mengerjakan').length;
+            const selesai = filtered.filter(e => e.status === 'selesai').length;
+            document.getElementById('mon-sedang').innerText = sedang;
+            document.getElementById('mon-selesai').innerText = selesai;
+            // "Belum Mulai" hanya bermakna jika filter Mapel dipilih (kalau "Semua Mapel", satu siswa bisa
+            // "sudah mulai" utk 1 mapel tapi "belum" utk mapel lain, sehingga tidak dihitung di sini).
+            const belum = subjectId ? Math.max((totalUser || 0) - sedang - selesai, 0) : 0;
+            document.getElementById('mon-belum').innerText = subjectId ? belum : '-';
+        }
+
+        function renderMonitorTable(data) {
+            const tbody = document.getElementById('tbl-monitor');
+            const emptyState = document.getElementById('mon-empty-state');
+            tbody.innerHTML = '';
+
+            const rows = monitorStatusFilter && monitorStatusFilter !== 'belum'
+                ? data.filter(e => e.status === monitorStatusFilter)
+                : data;
+
+            if(!rows || rows.length === 0) {
+                emptyState.classList.remove('hidden');
+                tbody.parentElement.classList.add('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+            tbody.parentElement.classList.remove('hidden');
+
+            rows.forEach(e => {
+                const statusBadge = e.status === 'mengerjakan'
+                    ? '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs animate-pulse">Mengerjakan</span>'
+                    : '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs">Selesai</span>';
+
+                const namaAman = escapeHtml(e.users?.nama || 'peserta ini').replace(/'/g, "\\'");
+                const aksiBtn = e.status === 'mengerjakan'
+                    ? `<button onclick="forceStopExam('${e.id}', '${e.subject_id}', '${namaAman}')" class="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-hand mr-1"></i>Force Stop</button>`
+                    : `<span class="text-slate-300 text-xs">-</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td data-label="Nama Peserta" class="td-noflex px-4 py-3"><div class="font-semibold text-slate-800">${e.users?.nama || 'Unknown'}</div><div class="text-xs text-slate-500">${e.users?.kelas || ''}</div></td>
+                        <td data-label="Mapel" class="px-4 py-3 text-sm">${e.subjects?.nama_mapel || '-'}</td>
+                        <td data-label="Mulai" class="px-4 py-3 text-sm">${new Date(e.waktu_mulai).toLocaleTimeString()}</td>
+                        <td data-label="Status" class="px-4 py-3">${statusBadge}</td>
+                        <td data-label="Aksi" class="px-4 py-3 text-center">${aksiBtn}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        /**
+         * Force Stop: admin menghentikan paksa ujian yang sedang berlangsung (status 'mengerjakan').
+         * Ujian ditandai selesai dan dinilai berdasarkan jawaban yang SUDAH TERSIMPAN di database
+         * sejauh ini (soal yang belum dijawab dihitung kosong) — logika penilaian sama persis
+         * dengan penilaian otomatis saat siswa submit/waktu habis, hanya dijalankan dari sisi admin.
+         */
+        async function forceStopExam(examId, subjectId, nama) {
+            const confirm = await Swal.fire({
+                title: 'Hentikan Ujian Ini?',
+                html: `Ujian milik <b>${nama}</b> akan dihentikan paksa dan dinilai berdasarkan jawaban yang sudah tersimpan sejauh ini. Soal yang belum dijawab akan dihitung kosong. Aksi ini tidak bisa dibatalkan.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'Ya, Hentikan Paksa',
+                cancelButtonText: 'Batal'
+            });
+            if(!confirm.isConfirmed) return;
+
+            showLoader();
+            try {
+                // Ambil semua soal mapel ini sebagai acuan total soal & kunci jawaban (pakai fetchAllRows agar tidak terpotong jika soal > 1000)
+                const soalList = await fetchAllRows(() => supabaseClient
+                    .from('questions')
+                    .select('id, jawaban_benar')
+                    .eq('subject_id', subjectId)
+                );
+                if(!soalList || soalList.length === 0) throw new Error('Bank soal mapel ini kosong, tidak bisa menilai.');
+
+                // Ambil jawaban yang sudah tersimpan untuk exam ini
+                const jawabanData = await fetchAllRows(() => supabaseClient
+                    .from('answers')
+                    .select('question_id, jawaban')
+                    .eq('exam_id', examId)
+                );
+                const jawabanMap = {};
+                (jawabanData || []).forEach(a => { jawabanMap[a.question_id] = a.jawaban; });
+
+                let benar = 0, salah = 0, kosong = 0;
+                soalList.forEach(q => {
+                    const ans = jawabanMap[q.id];
+                    if(!ans) kosong++;
+                    else if(ans === q.jawaban_benar) benar++;
+                    else salah++;
+                });
+                const nilai = (benar / soalList.length) * 100;
+
+                // Tandai ujian selesai
+                const { error: errExam } = await supabaseClient
+                    .from('exams')
+                    .update({ status: 'selesai', waktu_selesai: new Date().toISOString() })
+                    .eq('id', examId);
+                if(errExam) throw errExam;
+
+                // Simpan hasil (upsert karena kolom exam_id di tabel results bersifat UNIQUE)
+                const { error: errResult } = await supabaseClient
+                    .from('results')
+                    .upsert({ exam_id: examId, nilai, benar, salah, kosong }, { onConflict: 'exam_id' });
+                if(errResult) throw errResult;
+
+                hideLoader();
+                Swal.fire('Berhasil', `Ujian ${nama} telah dihentikan paksa. Nilai: ${nilai.toFixed(2)}`, 'success');
+                fetchMonitor();
+            } catch(err) {
+                hideLoader();
+                Swal.fire('Gagal', err.message || 'Terjadi kesalahan saat menghentikan ujian.', 'error');
+            }
+        }
+
+        // --- Extrak Log Monitoring (backup data monitoring saat ini ke Excel) ---
+        function exportMonitoringLog() {
+            const rows = monitorStatusFilter && monitorStatusFilter !== 'belum'
+                ? monitorLastData.filter(e => e.status === monitorStatusFilter)
+                : monitorLastData;
+
+            if(!rows || rows.length === 0) return Swal.fire('Info', 'Tidak ada data monitoring untuk diekstrak dari filter saat ini.', 'info');
+
+            const header = ['Nama Peserta', 'Kelas', 'Mata Pelajaran', 'Status', 'Waktu Mulai', 'Waktu Selesai'];
+            const aoa = [header];
+            rows.forEach(e => {
+                aoa.push([
+                    e.users?.nama || '-',
+                    e.users?.kelas || '-',
+                    e.subjects?.nama_mapel || '-',
+                    e.status === 'mengerjakan' ? 'Mengerjakan' : 'Selesai',
+                    e.waktu_mulai ? new Date(e.waktu_mulai).toLocaleString('id-ID') : '-',
+                    e.waktu_selesai ? new Date(e.waktu_selesai).toLocaleString('id-ID') : '-'
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            ws['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 20 }, { wch: 20 }];
+            for(let c = 0; c < header.length; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 0, c });
+                if(ws[addr]) ws[addr].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '1E40AF' } }, alignment: { horizontal: 'center' } };
+            }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Log Monitoring');
+            XLSX.writeFile(wb, `Log_Monitoring_${Date.now()}.xlsx`);
         }
 
         // --- Hasil Ujian ---
@@ -2351,7 +2836,8 @@
                         <td data-label="Jam Mulai" class="px-6 py-4 text-slate-600">${j.jam_mulai}</td>
                         <td data-label="Jam Selesai" class="px-6 py-4 text-slate-600">${j.jam_selesai}</td>
                         <td data-label="Kelas" class="px-6 py-4"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">${j.kelas || 'Semua Kelas'}</span></td>
-                        <td data-label="Aksi" class="px-6 py-4 text-right">
+                        <td data-label="Aksi" class="td-noflex px-6 py-4 sm:text-right flex flex-wrap gap-2 sm:justify-end">
+                            <button onclick="editJadwalModal('${j.id}')" class="text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-pen"></i> Edit</button>
                             <button onclick="hapusJadwal('${j.id}')" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
@@ -2359,42 +2845,70 @@
             });
         }
 
+        // Ambil daftar kelas unik yang sudah ada di data peserta, supaya admin tinggal pilih
+        // tanpa perlu mengetik ulang nama kelas di form jadwal.
+        async function getDistinctKelasList() {
+            const { data } = await supabaseClient.from('users').select('kelas').eq('role', 'siswa');
+            return [...new Set((data || []).map(u => u.kelas).filter(Boolean))].sort();
+        }
+
+        // Membangun HTML form Jadwal (dipakai bersama oleh Tambah & Edit). prefill diisi data jadwal saat mode Edit.
+        function buildJadwalFormHtml(mapelList, kelasList, prefill = {}) {
+            const optionsMapel = mapelList.map(m => `<option value="${m.id}" ${prefill.subject_id === m.id ? 'selected' : ''}>${m.nama_mapel}</option>`).join('');
+            const optionsKelas = kelasList.map(k => `<option value="${escapeHtml(k)}" ${prefill.kelas === k ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('');
+            const isSemuaKelas = !prefill.kelas; // kelas kosong/null = berlaku utk semua kelas
+            return `
+                <div class="text-left space-y-3">
+                    <div><label class="text-sm font-medium text-slate-600">Mata Pelajaran</label>
+                    <select id="swal-jadwal-mapel" class="swal2-select mt-1">${optionsMapel}</select></div>
+                    <div><label class="text-sm font-medium text-slate-600">Tanggal</label>
+                    <input id="swal-jadwal-tanggal" type="date" class="swal2-input mt-1" value="${prefill.tanggal || ''}"></div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-sm font-medium text-slate-600">Jam Mulai</label>
+                        <input id="swal-jadwal-mulai" type="time" class="swal2-input mt-1" value="${prefill.jam_mulai || ''}"></div>
+                        <div><label class="text-sm font-medium text-slate-600">Jam Selesai</label>
+                        <input id="swal-jadwal-selesai" type="time" class="swal2-input mt-1" value="${prefill.jam_selesai || ''}"></div>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm text-slate-600 mb-1.5 cursor-pointer select-none">
+                            <input type="checkbox" id="swal-jadwal-semua-kelas" ${isSemuaKelas ? 'checked' : ''} onchange="document.getElementById('swal-jadwal-kelas-wrap').classList.toggle('hidden', this.checked)" class="cbt-checkbox w-4 h-4 rounded border-slate-300 text-primary cursor-pointer">
+                            Untuk Semua Kelas
+                        </label>
+                        <div id="swal-jadwal-kelas-wrap" class="${isSemuaKelas ? 'hidden' : ''}">
+                            <label class="text-sm font-medium text-slate-600">Pilih Kelas</label>
+                            <select id="swal-jadwal-kelas" class="swal2-select mt-1">${optionsKelas}</select>
+                            <input id="swal-jadwal-kelas-baru" type="text" placeholder="atau ketik nama kelas baru (opsional)" class="swal2-input mt-1.5" value="${(!isSemuaKelas && !kelasList.includes(prefill.kelas)) ? escapeHtml(prefill.kelas) : ''}">
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function extractJadwalFormValues() {
+            const subject_id = document.getElementById('swal-jadwal-mapel').value;
+            const tanggal = document.getElementById('swal-jadwal-tanggal').value;
+            const jam_mulai = document.getElementById('swal-jadwal-mulai').value;
+            const jam_selesai = document.getElementById('swal-jadwal-selesai').value;
+            const semuaKelas = document.getElementById('swal-jadwal-semua-kelas').checked;
+            const kelasBaru = document.getElementById('swal-jadwal-kelas-baru').value.trim();
+            const kelasPilih = document.getElementById('swal-jadwal-kelas').value;
+            if(!tanggal || !jam_mulai || !jam_selesai) { Swal.showValidationMessage('Tanggal dan jam wajib diisi!'); return false; }
+            const kelas = semuaKelas ? null : (kelasBaru || kelasPilih || null);
+            return { subject_id, tanggal, jam_mulai, jam_selesai, kelas };
+        }
+
         async function addJadwalModal() {
-            // Ambil daftar mapel dulu
             const { data: mapelList } = await supabaseClient.from('subjects').select('id, nama_mapel');
             if(!mapelList || mapelList.length === 0) return Swal.fire('Peringatan', 'Tambahkan Mata Pelajaran terlebih dahulu', 'warning');
-            const optionsMapel = mapelList.map(m => `<option value="${m.id}">${m.nama_mapel}</option>`).join('');
+            const kelasList = await getDistinctKelasList();
 
             const { value: formValues } = await Swal.fire({
                 title: 'Tambah Jadwal Ujian',
-                html: `
-                    <div class="text-left space-y-3">
-                        <div><label class="text-sm font-medium text-slate-600">Mata Pelajaran</label>
-                        <select id="swal-jadwal-mapel" class="swal2-select mt-1">${optionsMapel}</select></div>
-                        <div><label class="text-sm font-medium text-slate-600">Tanggal</label>
-                        <input id="swal-jadwal-tanggal" type="date" class="swal2-input mt-1"></div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-sm font-medium text-slate-600">Jam Mulai</label>
-                            <input id="swal-jadwal-mulai" type="time" class="swal2-input mt-1"></div>
-                            <div><label class="text-sm font-medium text-slate-600">Jam Selesai</label>
-                            <input id="swal-jadwal-selesai" type="time" class="swal2-input mt-1"></div>
-                        </div>
-                        <div><label class="text-sm font-medium text-slate-600">Kelas (kosongkan = semua kelas)</label>
-                        <input id="swal-jadwal-kelas" class="swal2-input mt-1" placeholder="Contoh: XII IPA 1"></div>
-                    </div>`,
+                html: buildJadwalFormHtml(mapelList, kelasList),
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: 'Simpan Jadwal',
                 cancelButtonText: 'Batal',
-                preConfirm: () => {
-                    const subject_id = document.getElementById('swal-jadwal-mapel').value;
-                    const tanggal = document.getElementById('swal-jadwal-tanggal').value;
-                    const jam_mulai = document.getElementById('swal-jadwal-mulai').value;
-                    const jam_selesai = document.getElementById('swal-jadwal-selesai').value;
-                    const kelas = document.getElementById('swal-jadwal-kelas').value;
-                    if(!tanggal || !jam_mulai || !jam_selesai) { Swal.showValidationMessage('Tanggal dan jam wajib diisi!'); return false; }
-                    return { subject_id, tanggal, jam_mulai, jam_selesai, kelas: kelas || null };
-                }
+                preConfirm: extractJadwalFormValues
             });
             if(formValues) {
                 showLoader();
@@ -2402,6 +2916,35 @@
                 hideLoader();
                 if(error) return Swal.fire('Error', error.message, 'error');
                 Swal.fire('Berhasil', 'Jadwal berhasil ditambahkan', 'success');
+                loadJadwal();
+            }
+        }
+
+        async function editJadwalModal(id) {
+            showLoader();
+            const [{ data: j, error: errFetch }, { data: mapelList }, kelasList] = await Promise.all([
+                supabaseClient.from('schedules').select('*').eq('id', id).single(),
+                supabaseClient.from('subjects').select('id, nama_mapel'),
+                getDistinctKelasList()
+            ]);
+            hideLoader();
+            if(errFetch || !j) return Swal.fire('Error', 'Gagal memuat data jadwal', 'error');
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Edit Jadwal Ujian',
+                html: buildJadwalFormHtml(mapelList || [], kelasList, j),
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan Perubahan',
+                cancelButtonText: 'Batal',
+                preConfirm: extractJadwalFormValues
+            });
+            if(formValues) {
+                showLoader();
+                const { error } = await supabaseClient.from('schedules').update(formValues).eq('id', id);
+                hideLoader();
+                if(error) return Swal.fire('Error', error.message, 'error');
+                Swal.fire('Berhasil', 'Jadwal berhasil diperbarui', 'success');
                 loadJadwal();
             }
         }
