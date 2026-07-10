@@ -1,6 +1,6 @@
 const database = [
 {nama:"AAQILAH AL SAHWA", asal:"MIS AL YUSUFIYAH BULUSPESANTREN", ruang:"2", gelombang:"2", kelas:"KELAS REGULER", username:"260216", password:"260216"},
-{nama:"AHMAD MAULANA PUTRA ", asal:"SD IT HASANAH FATIMIYAH ", ruang:"1", gelombang:"2", kelas:"KELAS REGULER", username:"260003", password:"260003"},
+{nama:"AHMAD MAULANA PUTRA ", asal:"SD IT HASANAH FATIMIYAH", ruang:"1", gelombang:"2", kelas:"KELAS REGULER", username:"260003", password:"260003"},
 {nama:"AMRI FAIZAL MUTAMIM", asal:"MIS SULTAN AGUNG 1 KALIPOH", ruang:"1", gelombang:"2", kelas:"KELAS REGULER", username:"260223", password:"260223"},
 {nama:"ARSYAH SATRIAYADI PUTRA", asal:"MI MA'ARIF JOJOGAN", ruang:"1", gelombang:"2", kelas:"KELAS REGULER", username:"260215", password:"260215"},
 {nama:"AURELIA NAURA ZAFARANI", asal:"SDIT VIP AL-HUDA", ruang:"2", gelombang:"2", kelas:"KELAS REGULER", username:"260048", password:"260048"},
