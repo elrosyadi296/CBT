@@ -429,7 +429,7 @@
                     <div class="p-4 sm:p-6 overflow-y-auto flex-1 text-base sm:text-lg">
                         <div id="q-text" class="mb-5 sm:mb-6 text-slate-800 leading-relaxed font-medium">Memuat pertanyaan...</div>
                         <div id="q-image-container" class="mb-5 sm:mb-6 hidden">
-                            <img id="q-image" src="" alt="Gambar Soal" class="max-w-full rounded-lg shadow-sm border">
+                            <img id="q-image" src="" alt="Gambar Soal" class="max-w-full h-auto max-h-64 sm:max-h-80 rounded-lg shadow-sm border object-contain block mx-auto">
                         </div>
                         
                         <!-- Options -->
@@ -618,6 +618,7 @@
                                 <input type="file" class="hidden" accept=".xlsx" onchange="handleImportSoal(event)">
                             </label>
                             <button onclick="downloadTemplateSoal()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-slate-500 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-slate-600 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-download mr-1"></i> Template</button>
+                            <button onclick="exportSoal()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded shadow text-xs sm:text-sm font-medium hover:bg-indigo-700 active:scale-[0.98] transition whitespace-nowrap"><i class="fa-solid fa-file-export mr-1"></i> Ekstrak Soal</button>
                         </div>
                     </div>
                     <div class="space-y-4" id="list-soal-container">
@@ -740,7 +741,7 @@
          * Ubah nilai ini setiap kali melakukan perubahan besar pada file ini,
          * agar mudah melacak versi kode yang sedang berjalan (tampil di footer Login & Sidebar Admin).
          */
-        const APP_LAST_UPDATE = '02 Juli 2026';
+        const APP_LAST_UPDATE = '09 Juli 2026';
 
         const SUPABASE_URL = 'https://zydheicrwufugserfjbx.supabase.co'; // GANTI INI
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZGhlaWNyd3VmdWdzZXJmamJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5ODQwODAsImV4cCI6MjA5NzU2MDA4MH0.Oi6FRdENV_daFN1U3KaFMraMmp6vdfNcQ5MV9Y6KLA8'; // GANTI INI
@@ -1296,7 +1297,7 @@
                 // Ambil Soal (jawaban_benar WAJIB disertakan agar penilaian tetap akurat meski urutan soal diacak)
                 const { data: soalData, error: errSoal } = await supabaseClient
                     .from('questions')
-                    .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar')
+                    .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_a_gambar, pilihan_b_gambar, pilihan_c_gambar, pilihan_d_gambar, jawaban_benar')
                     .eq('subject_id', pendingExam.subjectId);
                 
                 if(errSoal || soalData.length === 0) throw new Error('Bank soal kosong.');
@@ -1346,7 +1347,7 @@
             // Re-fetch questions based on currentExam
             showLoader();
             supabaseClient.from('questions')
-                .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar')
+                .select('id, soal, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_a_gambar, pilihan_b_gambar, pilihan_c_gambar, pilihan_d_gambar, jawaban_benar')
                 .eq('subject_id', currentExam.subjectId)
                 .then(({data}) => {
                     // Pertahankan urutan soal yang sama seperti saat ujian dimulai (jika tersimpan)
@@ -1489,8 +1490,8 @@
             optionsContainer.innerHTML = '';
             
             const opts = [
-                { key: 'A', text: q.pilihan_a }, { key: 'B', text: q.pilihan_b },
-                { key: 'C', text: q.pilihan_c }, { key: 'D', text: q.pilihan_d }
+                { key: 'A', text: q.pilihan_a, img: q.pilihan_a_gambar }, { key: 'B', text: q.pilihan_b, img: q.pilihan_b_gambar },
+                { key: 'C', text: q.pilihan_c, img: q.pilihan_c_gambar }, { key: 'D', text: q.pilihan_d, img: q.pilihan_d_gambar }
             ];
 
             const currentAnswer = answers[q.id]?.answer;
@@ -1505,7 +1506,10 @@
                             <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex-shrink-0 flex items-center justify-center mr-3 radio-circle mt-0.5">
                                 <span class="text-xs font-bold text-slate-500">${opt.key}</span>
                             </div>
-                            <div class="text-slate-700 leading-relaxed pt-0.5 text-[15px] sm:text-base">${renderMathText(opt.text)}</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-slate-700 leading-relaxed pt-0.5 text-[15px] sm:text-base">${renderMathText(opt.text)}</div>
+                                ${opt.img ? `<img src="${opt.img}" alt="Gambar Pilihan ${opt.key}" class="mt-2 max-w-full h-auto max-h-48 sm:max-h-56 rounded-lg border border-slate-200 object-contain block" loading="lazy">` : ''}
+                            </div>
                         </div>
                     </label>
                 `;
@@ -2067,12 +2071,12 @@
                             </div>
                         </div>
                         <p class="text-slate-800 text-sm mb-3 pl-6">${renderMathText(s.soal)}</p>
-                        ${s.gambar ? `<div class="mb-3 pl-6"><img src="${s.gambar}" alt="Gambar Soal" class="max-h-32 rounded-lg border border-slate-200"></div>` : ''}
+                        ${s.gambar ? `<div class="mb-3 pl-6"><img src="${s.gambar}" alt="Gambar Soal" class="max-w-full h-auto max-h-48 sm:max-h-56 rounded-lg border border-slate-200 object-contain block" loading="lazy"></div>` : ''}
                         <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs pl-6">
-                            <div class="p-2 border rounded ${s.jawaban_benar==='A'?'bg-green-100 border-green-500':''}"><span class="font-bold">A.</span> ${renderMathText(s.pilihan_a)}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='B'?'bg-green-100 border-green-500':''}"><span class="font-bold">B.</span> ${renderMathText(s.pilihan_b)}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='C'?'bg-green-100 border-green-500':''}"><span class="font-bold">C.</span> ${renderMathText(s.pilihan_c)}</div>
-                            <div class="p-2 border rounded ${s.jawaban_benar==='D'?'bg-green-100 border-green-500':''}"><span class="font-bold">D.</span> ${renderMathText(s.pilihan_d)}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='A'?'bg-green-100 border-green-500':''}"><span class="font-bold">A.</span> ${renderMathText(s.pilihan_a)}${s.pilihan_a_gambar ? `<img src="${s.pilihan_a_gambar}" alt="Gambar Pilihan A" class="mt-1.5 max-w-full h-auto max-h-32 rounded border border-slate-200 object-contain block" loading="lazy">` : ''}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='B'?'bg-green-100 border-green-500':''}"><span class="font-bold">B.</span> ${renderMathText(s.pilihan_b)}${s.pilihan_b_gambar ? `<img src="${s.pilihan_b_gambar}" alt="Gambar Pilihan B" class="mt-1.5 max-w-full h-auto max-h-32 rounded border border-slate-200 object-contain block" loading="lazy">` : ''}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='C'?'bg-green-100 border-green-500':''}"><span class="font-bold">C.</span> ${renderMathText(s.pilihan_c)}${s.pilihan_c_gambar ? `<img src="${s.pilihan_c_gambar}" alt="Gambar Pilihan C" class="mt-1.5 max-w-full h-auto max-h-32 rounded border border-slate-200 object-contain block" loading="lazy">` : ''}</div>
+                            <div class="p-2 border rounded ${s.jawaban_benar==='D'?'bg-green-100 border-green-500':''}"><span class="font-bold">D.</span> ${renderMathText(s.pilihan_d)}${s.pilihan_d_gambar ? `<img src="${s.pilihan_d_gambar}" alt="Gambar Pilihan D" class="mt-1.5 max-w-full h-auto max-h-32 rounded border border-slate-200 object-contain block" loading="lazy">` : ''}</div>
                         </div>
                     </div>
                 `;
@@ -2169,7 +2173,11 @@
                             pilihan_c: String(r.C || r.c),
                             pilihan_d: String(r.D || r.d),
                             jawaban_benar: String(r.Kunci || r.kunci).toUpperCase(),
-                            gambar: (r.Gambar || r.gambar || '').toString().trim() || null
+                            gambar: (r.Gambar || r.gambar || '').toString().trim() || null,
+                            pilihan_a_gambar: (r.Gambar_A || r.gambar_a || '').toString().trim() || null,
+                            pilihan_b_gambar: (r.Gambar_B || r.gambar_b || '').toString().trim() || null,
+                            pilihan_c_gambar: (r.Gambar_C || r.gambar_c || '').toString().trim() || null,
+                            pilihan_d_gambar: (r.Gambar_D || r.gambar_d || '').toString().trim() || null
                         }));
                         await supabaseClient.from('questions').insert(formattedData);
                         Swal.fire('Sukses', `${formattedData.length} soal diimport`, 'success');
@@ -2674,15 +2682,25 @@
             const optionsKunci = ['A', 'B', 'C', 'D'].map(k => `<option value="${k}" ${prefill.jawaban_benar === k ? 'selected' : ''}>${k}</option>`).join('');
             const existingGambar = prefill.gambar || '';
             const isBase64 = existingGambar.startsWith('data:');
+            const optImgRow = (key, value) => `
+                <div class="flex items-center gap-2 mt-1.5">
+                    <i class="fa-solid fa-image text-slate-400 text-xs shrink-0"></i>
+                    <input id="swal-${key}-gambar" type="text" placeholder="URL gambar Pilihan ${key.toUpperCase()} (opsional)" value="${escapeHtml(value || '')}" oninput="onPilihanGambarUrlInput('${key}', this.value)" class="cbt-field-input flex-1 w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
+                </div>
+                <div id="swal-${key}-gambar-preview-wrap" class="${value ? '' : 'hidden'} mt-1.5 relative inline-block">
+                    <img id="swal-${key}-gambar-preview" class="max-w-full h-auto max-h-24 rounded-lg border border-slate-200 object-contain block" src="${escapeHtml(value || '')}">
+                    <button type="button" onclick="clearPilihanGambar('${key}')" title="Hapus gambar" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
+                </div>`;
             return `
                 <div class="text-left space-y-3.5">
                     ${swalTextarea({ id: 'swal-soal', label: 'Pertanyaan', placeholder: 'Tulis soal di sini... (pakai tanda ^ untuk pangkat, contoh: 5^2)', rows: 3, value: prefill.soal || '' })}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        ${swalInput({ id: 'swal-a', label: 'Pilihan A', placeholder: 'Pilihan A', value: prefill.pilihan_a || '' })}
-                        ${swalInput({ id: 'swal-b', label: 'Pilihan B', placeholder: 'Pilihan B', value: prefill.pilihan_b || '' })}
-                        ${swalInput({ id: 'swal-c', label: 'Pilihan C', placeholder: 'Pilihan C', value: prefill.pilihan_c || '' })}
-                        ${swalInput({ id: 'swal-d', label: 'Pilihan D', placeholder: 'Pilihan D', value: prefill.pilihan_d || '' })}
+                        <div>${swalInput({ id: 'swal-a', label: 'Pilihan A', placeholder: 'Pilihan A', value: prefill.pilihan_a || '' })}${optImgRow('a', prefill.pilihan_a_gambar)}</div>
+                        <div>${swalInput({ id: 'swal-b', label: 'Pilihan B', placeholder: 'Pilihan B', value: prefill.pilihan_b || '' })}${optImgRow('b', prefill.pilihan_b_gambar)}</div>
+                        <div>${swalInput({ id: 'swal-c', label: 'Pilihan C', placeholder: 'Pilihan C', value: prefill.pilihan_c || '' })}${optImgRow('c', prefill.pilihan_c_gambar)}</div>
+                        <div>${swalInput({ id: 'swal-d', label: 'Pilihan D', placeholder: 'Pilihan D', value: prefill.pilihan_d || '' })}${optImgRow('d', prefill.pilihan_d_gambar)}</div>
                     </div>
+                    <p class="text-[11px] text-slate-400 -mt-2"><i class="fa-solid fa-circle-info mr-1"></i>Tempel link/URL gambar jika pilihan jawaban berupa gambar.</p>
                     ${swalSelect({ id: 'swal-kunci', label: 'Kunci Jawaban', icon: 'fa-solid fa-key', optionsHtml: optionsKunci })}
 
                     <div class="border-t border-slate-200 pt-3.5">
@@ -2695,7 +2713,7 @@
                             <input id="swal-gambar-url" type="text" placeholder="atau tempel URL gambar di sini" value="${isBase64 ? '' : escapeHtml(existingGambar)}" oninput="onSoalGambarUrlInput(this.value)" class="cbt-field-input flex-1 w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white">
                         </div>
                         <div id="swal-gambar-preview-wrap" class="${existingGambar ? '' : 'hidden'} mt-2.5 relative inline-block">
-                            <img id="swal-gambar-preview" class="max-h-28 rounded-lg border border-slate-200" src="${escapeHtml(existingGambar)}" ${isBase64 ? `data-base64="${escapeHtml(existingGambar)}"` : ''}>
+                            <img id="swal-gambar-preview" class="max-w-full h-auto max-h-32 rounded-lg border border-slate-200 object-contain block" src="${escapeHtml(existingGambar)}" ${isBase64 ? `data-base64="${escapeHtml(existingGambar)}"` : ''}>
                             <button type="button" onclick="clearSoalGambar()" title="Hapus gambar" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
@@ -2716,7 +2734,30 @@
             const urlVal = document.getElementById('swal-gambar-url').value.trim();
             const gambar = (preview && preview.dataset.base64) ? preview.dataset.base64 : (urlVal || null);
 
-            return { subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci, gambar };
+            // Ambil URL gambar per pilihan jawaban (opsional, dari link)
+            const pilihanAGambar = document.getElementById('swal-a-gambar').value.trim() || null;
+            const pilihanBGambar = document.getElementById('swal-b-gambar').value.trim() || null;
+            const pilihanCGambar = document.getElementById('swal-c-gambar').value.trim() || null;
+            const pilihanDGambar = document.getElementById('swal-d-gambar').value.trim() || null;
+
+            return {
+                subject_id: subjectId, soal, pilihan_a: a, pilihan_b: b, pilihan_c: c, pilihan_d: d, jawaban_benar: kunci, gambar,
+                pilihan_a_gambar: pilihanAGambar, pilihan_b_gambar: pilihanBGambar, pilihan_c_gambar: pilihanCGambar, pilihan_d_gambar: pilihanDGambar
+            };
+        }
+
+        // --- Helper Gambar per Pilihan Jawaban (URL/link saja) ---
+        function onPilihanGambarUrlInput(key, url) {
+            const preview = document.getElementById(`swal-${key}-gambar-preview`);
+            const wrap = document.getElementById(`swal-${key}-gambar-preview-wrap`);
+            if(url) { preview.src = url; wrap.classList.remove('hidden'); }
+            else { wrap.classList.add('hidden'); }
+        }
+
+        function clearPilihanGambar(key) {
+            document.getElementById(`swal-${key}-gambar`).value = '';
+            document.getElementById(`swal-${key}-gambar-preview`).src = '';
+            document.getElementById(`swal-${key}-gambar-preview-wrap`).classList.add('hidden');
         }
 
         async function addSoalModal() {
@@ -2810,13 +2851,48 @@
 
         function downloadTemplateSoal() {
             const ws = XLSX.utils.aoa_to_sheet([
-                ['Soal', 'A', 'B', 'C', 'D', 'Kunci', 'Gambar'],
-                ['Berapakah hasil dari 2 + 2?', '3', '4', '5', '6', 'B', ''],
-                ['Ibu kota Indonesia adalah?', 'Bandung', 'Surabaya', 'Jakarta', 'Medan', 'C', ''],
+                ['Soal', 'A', 'B', 'C', 'D', 'Kunci', 'Gambar', 'Gambar_A', 'Gambar_B', 'Gambar_C', 'Gambar_D'],
+                ['Berapakah hasil dari 2 + 2?', '3', '4', '5', '6', 'B', '', '', '', '', ''],
+                ['Ibu kota Indonesia adalah?', 'Bandung', 'Surabaya', 'Jakarta', 'Medan', 'C', '', '', '', '', ''],
             ]);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Soal');
             XLSX.writeFile(wb, 'Template_Import_Soal.xlsx');
+        }
+
+        // --- Ekstrak (Export) Soal yang Sudah Ada ke Excel ---
+        // Formatnya sengaja disamakan persis dengan Template Import Soal, sehingga file hasil
+        // ekstrak ini bisa langsung diedit lalu diimport ulang (round-trip) jika diperlukan.
+        async function exportSoal() {
+            const subjectId = document.getElementById('filter-mapel-soal').value;
+            if(!subjectId) return Swal.fire('Peringatan', 'Pilih Mata Pelajaran terlebih dahulu sebelum ekstrak soal', 'warning');
+
+            showLoader();
+            const { data, error } = await supabaseClient
+                .from('questions')
+                .select('soal, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, gambar, pilihan_a_gambar, pilihan_b_gambar, pilihan_c_gambar, pilihan_d_gambar')
+                .eq('subject_id', subjectId);
+            hideLoader();
+
+            if(error) return Swal.fire('Error', error.message, 'error');
+            if(!data || data.length === 0) return Swal.fire('Info', 'Belum ada soal untuk mata pelajaran ini.', 'info');
+
+            const mapelSel = document.getElementById('filter-mapel-soal');
+            const namaMapel = mapelSel.options[mapelSel.selectedIndex]?.text || 'Soal';
+
+            const aoa = [['Soal', 'A', 'B', 'C', 'D', 'Kunci', 'Gambar', 'Gambar_A', 'Gambar_B', 'Gambar_C', 'Gambar_D']];
+            data.forEach(s => {
+                aoa.push([
+                    s.soal || '', s.pilihan_a || '', s.pilihan_b || '', s.pilihan_c || '', s.pilihan_d || '',
+                    s.jawaban_benar || '', s.gambar || '', s.pilihan_a_gambar || '', s.pilihan_b_gambar || '', s.pilihan_c_gambar || '', s.pilihan_d_gambar || ''
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Soal');
+            const safeName = namaMapel.replace(/[^a-z0-9]/gi, '_');
+            XLSX.writeFile(wb, `Ekstrak_Soal_${safeName}_${Date.now()}.xlsx`);
         }
 
         // --- CRUD Jadwal Ujian ---
